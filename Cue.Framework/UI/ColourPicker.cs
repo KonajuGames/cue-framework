@@ -57,6 +57,7 @@ public sealed class ColourPicker : Panel
     public Srgb Colour => Srgb.FromHsv(Hue, Saturation, Value);
 
     public override bool IsInteractive => true;
+    public override bool IsModal => true;
     public override Cursor Cursor => Cursor.Arrow;
     public override bool IsFocusable => Visible;
 

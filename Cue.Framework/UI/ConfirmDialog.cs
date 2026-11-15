@@ -74,6 +74,7 @@ public sealed class ConfirmDialog : Panel
     public override void PointerDown(float2 point, Modifiers modifiers) => _pressedInBox = _box.Contains(point);
 
     public override bool IsInteractive => true;
+    public override bool IsModal => true;
     public override bool IsFocusable => Visible;
     public override Cursor Cursor => Cursor.Arrow;
 

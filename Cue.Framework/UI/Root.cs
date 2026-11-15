@@ -572,11 +572,17 @@ public sealed class Root
             return true;
         }
 
-        // An open menu, then anything else that answers keys wherever the focus is, has first say.
+        // An open menu, then anything else that answers keys wherever the focus is, has first say, down to the
+        // topmost dialog: nothing under that sees them.
         for (var i = Elements.Count - 1; i >= 0; i--)
         {
-            if (Elements[i].Visible && Elements[i].PreviewKeyDown(key, modifiers))
+            var element = Elements[i];
+            if (!element.Visible)
+                continue;
+            if (element.PreviewKeyDown(key, modifiers))
                 return true;
+            if (element.IsModal)
+                break;
         }
 
         if (key == Key.Tab)

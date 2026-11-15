@@ -88,7 +88,10 @@ of a bar's menu (`ContextMenu.SteppedOut`) open the menu beside it. A dropdown o
 
 This works through `Element.PreviewKeyDown`, which `Root` asks every visible element (a panel asks its children),
 topmost first, before the focused element gets a key, so a menu has its keys whatever has focus, a text box
-included. `Key` now has every letter and F10.
+included. It stops at the topmost visible element whose `IsModal` is true, so Alt+letter and F10 don't open a menu
+behind a dialog, while a menu opened from the dialog (added to the root after it) still gets its keys.
+`ConfirmDialog`, `NamePrompt` and `ColourPicker` are modal; an app's own dialogs override `IsModal` too (Cuedeck's
+do; Cuepoint's needn't, having no menu bar). `Key` now has every letter and F10.
 
 ### Names
 

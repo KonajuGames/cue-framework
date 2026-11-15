@@ -51,6 +51,7 @@ public sealed class NamePrompt : Panel
     }
 
     public override bool IsInteractive => true;
+    public override bool IsModal => true;
     public override Cursor Cursor => Cursor.Arrow;
 
     /// <summary>

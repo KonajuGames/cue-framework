@@ -67,6 +67,13 @@ public abstract class Element
     public virtual bool IsInteractive => false;
 
     /// <summary>
+    /// Whether this element, shown at the top level, is a dialog over everything before it: <see cref="Root"/>
+    /// doesn't let what's under it see keys first (<see cref="PreviewKeyDown"/>), so a menu bar's Alt+letter doesn't
+    /// open a menu behind it. Menus opened from it are added after it, so they still get their keys.
+    /// </summary>
+    public virtual bool IsModal => false;
+
+    /// <summary>
     /// The cursor shown while the mouse is over this element, if it's interactive.
     /// </summary>
     public virtual Cursor Cursor => Cursor.Hand;
