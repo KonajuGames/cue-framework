@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Cue.Framework</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The BRUTAL versions Cuepoint and Cuedeck use; an app referencing this gets them too. -->
+    <PackageReference Include="Ahwoo.BRUTAL.Collections" Version="2026.10.2" />
+    <PackageReference Include="Ahwoo.BRUTAL.Core" Version="2026.10.4" />
+    <PackageReference Include="Ahwoo.BRUTAL.FreeType" Version="2026.10.2" />
+    <PackageReference Include="Ahwoo.BRUTAL.Glfw" Version="2026.10.5" />
+    <PackageReference Include="Ahwoo.BRUTAL.Memory" Version="2026.10.2" />
+    <PackageReference Include="Ahwoo.BRUTAL.Numerics" Version="2026.10.2" />
+    <PackageReference Include="Ahwoo.BRUTAL.ShaderC" Version="2026.10.3" />
+    <PackageReference Include="Ahwoo.BRUTAL.Strings" Version="2026.10.2" />
+    <PackageReference Include="Ahwoo.BRUTAL.Vulkan.Abstractions" Version="2026.10.3" />
+    <PackageReference Include="Ahwoo.BRUTAL.Vulkan.Vma" Version="2026.10.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GLSL is compiled to SPIR-V at startup, so the UI's shaders ship next to the app's executable, beside the
+         app's own in its Shaders folder. -->
+    <None Include="Shaders\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ByteSize, ElementCount, Ptr and friends. -->
+    <Using Include="Brutal" />
+  </ItemGroup>
+
+</Project>
