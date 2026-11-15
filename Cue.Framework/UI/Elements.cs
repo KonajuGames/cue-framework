@@ -124,6 +124,13 @@ public abstract class Element
     public virtual bool KeyDown(Key key, Modifiers modifiers) => false;
 
     /// <summary>
+    /// A key went down (or repeated), before the focused element sees it, for something that answers keys wherever
+    /// the focus is: an open menu, or a menu bar's Alt+letter. Every visible element is asked, topmost first, until
+    /// one returns that it used it. A panel asks its children.
+    /// </summary>
+    public virtual bool PreviewKeyDown(Key key, Modifiers modifiers) => false;
+
+    /// <summary>
     /// The mouse wheel turned by <paramref name="notches"/> (positive towards the left and top) over this element,
     /// while it's <see cref="Root.Hovered"/>. Returns whether it was used; if not, it scrolls whatever it's in.
     /// </summary>
@@ -433,6 +440,16 @@ public class Panel : Element
     }
 
     public override IEnumerable<Element> VisibleChildren => Children.Where(child => child.Visible);
+
+    public override bool PreviewKeyDown(Key key, Modifiers modifiers)
+    {
+        for (var i = Children.Count - 1; i >= 0; i--)
+        {
+            if (Children[i].Visible && Children[i].PreviewKeyDown(key, modifiers))
+                return true;
+        }
+        return false;
+    }
 
     /// <summary>
     /// The visible child under <paramref name="point"/> that's drawn on top, or null.

@@ -8,6 +8,11 @@ namespace Cue.Framework.UI;
 /// instead; clicking the open title, or anywhere else, puts it away. Each menu's items are asked for afresh each
 /// time it opens, so they can be enabled, ticked or left out by what's going on. Set <see cref="Width"/> for the bar
 /// to run across the window.
+/// <para>
+/// From the keyboard, Alt and a title's first letter opens that menu, and F10 the first (or closes the one open),
+/// with its first item highlighted; then the menu's own keys work (see <see cref="ContextMenu"/>), and Left and Right
+/// past its ends go to the menus beside it.
+/// </para>
 /// </summary>
 public sealed class MenuBar : Panel
 {
@@ -30,6 +35,34 @@ public sealed class MenuBar : Panel
             if (OpenTitle is not null && Titles().FirstOrDefault(title => title.Contains(point)) is { } other && !ReferenceEquals(_menu.Owner, other))
                 Open(other);
         };
+        menu.SteppedOut += step =>
+        {
+            if (_menu.Owner is not Button open || !_menus.ContainsKey(open))
+                return;
+            var titles = Titles().ToList();
+            var at = titles.IndexOf(open);
+            if (at >= 0)
+                Open(titles[(at + step + titles.Count) % titles.Count], byKeyboard: true);
+        };
+    }
+
+    public override bool PreviewKeyDown(Key key, Modifiers modifiers)
+    {
+        if (key == Key.F10 && modifiers == Modifiers.None)
+        {
+            if (OpenTitle is not null)
+                _menu.Close();
+            else if (Titles().FirstOrDefault() is { } first)
+                Open(first, byKeyboard: true);
+            return true;
+        }
+        // Alt and a title's first letter.
+        if (modifiers != Modifiers.Alt || key.ToString() is not { Length: 1 } letter)
+            return false;
+        if (Titles().FirstOrDefault(title => title.Text.StartsWith(letter, StringComparison.OrdinalIgnoreCase)) is not { } match)
+            return false;
+        Open(match, byKeyboard: true);
+        return true;
     }
 
     /// <summary>
@@ -72,12 +105,17 @@ public sealed class MenuBar : Panel
     public string? OpenTitle => _menu.Visible && _menu.Owner is Button button && _menus.ContainsKey(button) ? button.Text : null;
 
     /// <summary>
-    /// Opens the menu called <paramref name="title"/>, as clicking its title would.
+    /// Opens the menu called <paramref name="title"/>, as clicking its title would, or with
+    /// <paramref name="byKeyboard"/>, as its keys would, its first item highlighted.
     /// </summary>
-    public void Open(string title) => Open(Titles().First(button => button.Text == title));
+    public void Open(string title, bool byKeyboard = false) => Open(Titles().First(button => button.Text == title), byKeyboard);
 
-    void Open(Button title) =>
+    void Open(Button title, bool byKeyboard = false)
+    {
         _menu.Show(new float2(title.ScreenPosition.X, ScreenPosition.Y + Size.Y - 1), _menus[title](), owner: title);
+        if (byKeyboard)
+            _menu.HighlightFirst();
+    }
 
     public override float2 Measure()
     {

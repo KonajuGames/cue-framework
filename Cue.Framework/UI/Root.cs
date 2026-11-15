@@ -309,6 +309,9 @@ public sealed class Root
     {
         _mouse = position;
         UpdateHover();
+        // An open menu follows the mouse over its items, which the move would otherwise reach alone.
+        foreach (var menu in Elements.OfType<ContextMenu>().Where(menu => menu.Visible).ToList())
+            menu.MouseMoved(position);
         foreach (var hook in PointerHooks.ToList())
             if (hook.Move(position))
                 return;
@@ -548,6 +551,13 @@ public sealed class Root
         {
             EndDrag(drop: false);
             return true;
+        }
+
+        // An open menu, then anything else that answers keys wherever the focus is, has first say.
+        for (var i = Elements.Count - 1; i >= 0; i--)
+        {
+            if (Elements[i].Visible && Elements[i].PreviewKeyDown(key, modifiers))
+                return true;
         }
 
         if (key == Key.Tab)

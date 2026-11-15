@@ -30,4 +30,24 @@ public enum Key
     X,
     Y,
     Z,
+
+    // The rest of the letters (for menus' Alt+letter and type-to-find) and F10, after the first ones so those keep
+    // their numbers.
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    T,
+    U,
+    F10,
 }

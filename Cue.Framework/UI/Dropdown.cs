@@ -92,7 +92,10 @@ public sealed class Dropdown<T> : Element, IOpensMenu
             .Select(item => new MenuItem(Text(item), () => Choose(item), Checked: EqualityComparer<T>.Default.Equals(item, Selected)))
             .ToList();
         if (items.Count > 0)
+        {
             menu.Show(ScreenPosition + new float2(0, Size.Y), items, minWidth: Size.X);
+            menu.HighlightItem(Text(Selected));
+        }
     }
 
     public override bool KeyDown(Key key, Modifiers modifiers)

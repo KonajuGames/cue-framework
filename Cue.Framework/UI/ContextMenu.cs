@@ -29,8 +29,15 @@ public sealed record MenuItem(
 
 /// <summary>
 /// A short list of things to do, shown where something was right-clicked, with a submenu for an item that has one.
-/// Choosing one, clicking anywhere else, or <see cref="Close"/> (for Escape) puts it away. It covers the whole screen,
-/// invisibly, to catch the click that closes it, so add it to the root after everything it should sit over.
+/// Choosing one, clicking anywhere else, or <see cref="Close"/> puts it away. It covers the whole screen, invisibly,
+/// to catch the click that closes it, so add it to the root after everything it should sit over.
+/// <para>
+/// While it's open it has first say on the keys: Up and Down (and Home and End) move the highlight over the items
+/// that can be chosen, Enter or Space chooses the highlighted one, Right opens its submenu and Left closes it, a
+/// letter moves to the next item starting with it, and Escape closes the submenu, then the menu. Left or Right with
+/// nowhere to go raises <see cref="SteppedOut"/>, for a <see cref="MenuBar"/> to open the next menu along. The mouse
+/// moves the highlight too.
+/// </para>
 /// </summary>
 public sealed class ContextMenu : Panel
 {
@@ -46,6 +53,11 @@ public sealed class ContextMenu : Panel
 
     // The item whose submenu is open in _subBox, if any.
     Button? _openItem;
+
+    // The item highlighted, by the keys or the mouse, which Enter chooses; in _box or _subBox.
+    Button? _highlighted;
+
+    static readonly float4 HIGHLIGHT = Theme.Fade(Theme.Accent, 0.35f);
 
     // The least width the menu's items take, so a dropdown's list is at least as wide as it.
     float _minWidth;
@@ -63,6 +75,17 @@ public sealed class ContextMenu : Panel
     /// <see cref="MenuBar"/> to open the menu of the title it's moved onto.
     /// </summary>
     public event Action<float2>? PointerMoved;
+
+    /// <summary>
+    /// Left (-1) or Right (+1) was pressed with no submenu to close or open: for a <see cref="MenuBar"/> to open the
+    /// menu beside the open one.
+    /// </summary>
+    public event Action<int>? SteppedOut;
+
+    /// <summary>
+    /// The highlighted item's text, or null if none is.
+    /// </summary>
+    public string? HighlightedText => _highlighted?.Text;
 
     public ContextMenu(Font font)
     {
@@ -97,7 +120,148 @@ public sealed class ContextMenu : Panel
     public override bool IsInteractive => true;
     public override Cursor Cursor => Cursor.Arrow;
 
-    public override void PointerMove(float2 point) => PointerMoved?.Invoke(point);
+    /// <summary>
+    /// The mouse moved to <paramref name="point"/>, over the menu or not (<see cref="Root"/> tells an open menu of
+    /// every move, as one over an item reaches only the item). Over an item, it's highlighted, and its submenu opened
+    /// or the open one closed.
+    /// </summary>
+    internal void MouseMoved(float2 point)
+    {
+        var over = ButtonsIn(_subBox).Concat(ButtonsIn(_box)).FirstOrDefault(button => button.Enabled && button.Contains(point));
+        if (over is not null && over != _highlighted)
+        {
+            Highlight(over);
+            if (_box.Children.Contains(over) && over != _openItem)
+            {
+                if (_items[over].Submenu is not null)
+                    OpenSubmenu(over);
+                else
+                    CloseSubmenu();
+            }
+        }
+        PointerMoved?.Invoke(point);
+    }
+
+    static IEnumerable<Button> ButtonsIn(Panel box) => box.Visible ? box.Children.OfType<Button>() : [];
+
+    void Highlight(Button? button)
+    {
+        if (_highlighted is not null)
+            _highlighted.Background = _highlighted.HoverBackground = Colors.Transparent;
+        _highlighted = button;
+        if (button is not null)
+            button.Background = button.HoverBackground = HIGHLIGHT;
+    }
+
+    /// <summary>
+    /// Highlights the first item that can be chosen, as when a menu's opened from the keyboard.
+    /// </summary>
+    public void HighlightFirst() => Highlight(ButtonsIn(_box).FirstOrDefault(button => button.Enabled));
+
+    /// <summary>
+    /// Highlights the item called <paramref name="text"/>, if there's one that can be chosen (a dropdown's choice).
+    /// </summary>
+    public void HighlightItem(string text)
+    {
+        if (ButtonsIn(_box).FirstOrDefault(button => button.Enabled && button.Text == text) is { } button)
+            Highlight(button);
+    }
+
+    public override bool PreviewKeyDown(Key key, Modifiers modifiers)
+    {
+        if (!Visible)
+            return false;
+        // Shortcuts held with Ctrl or Alt go on to the app (Alt+a letter to a menu bar).
+        if ((modifiers & (Modifiers.Control | Modifiers.Alt | Modifiers.Super)) != 0)
+            return key == Key.Escape && Escape();
+        var inSub = _highlighted is not null && _subBox.Children.Contains(_highlighted);
+        var box = inSub ? _subBox : _box;
+        var choices = ButtonsIn(box).Where(button => button.Enabled).ToList();
+        switch (key)
+        {
+            case Key.Escape:
+                return Escape();
+            case Key.Down or Key.Up:
+                if (choices.Count > 0)
+                {
+                    var at = _highlighted is null ? -1 : choices.IndexOf(_highlighted);
+                    var step = key == Key.Down ? 1 : -1;
+                    Highlight(choices[at < 0 ? (step > 0 ? 0 : choices.Count - 1) : (at + step + choices.Count) % choices.Count]);
+                }
+                return true;
+            case Key.Home or Key.End or Key.PageUp or Key.PageDown:
+                if (choices.Count > 0)
+                    Highlight(key is Key.Home or Key.PageUp ? choices[0] : choices[^1]);
+                return true;
+            case Key.Right:
+                if (!inSub && _highlighted is { } parent && _items[parent].Submenu is not null)
+                {
+                    OpenSubmenu(parent);
+                    Highlight(ButtonsIn(_subBox).FirstOrDefault(button => button.Enabled));
+                }
+                else
+                    SteppedOut?.Invoke(1);
+                return true;
+            case Key.Left:
+                if (inSub && _openItem is { } item)
+                {
+                    CloseSubmenu();
+                    Highlight(item);
+                }
+                else
+                    SteppedOut?.Invoke(-1);
+                return true;
+            case Key.Enter or Key.Space:
+                if (_highlighted is { } chosen)
+                {
+                    if (!inSub && _items[chosen].Submenu is not null)
+                    {
+                        OpenSubmenu(chosen);
+                        Highlight(ButtonsIn(_subBox).FirstOrDefault(button => button.Enabled));
+                    }
+                    else
+                        chosen.RaiseClicked();
+                }
+                return true;
+            case Key.Tab:
+                return true; // focus stays where it is behind the menu
+            default:
+                if (LetterOf(key) is not { } letter)
+                    return false;
+                // The next item along starting with the letter, round to the top.
+                var from = _highlighted is null ? -1 : choices.IndexOf(_highlighted);
+                for (var i = 1; i <= choices.Count; i++)
+                {
+                    var next = choices[(from + i + choices.Count) % choices.Count];
+                    if (next.Text.StartsWith(letter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Highlight(next);
+                        break;
+                    }
+                }
+                return true;
+        }
+    }
+
+    // Escape closes the submenu the highlight's in, else the menu.
+    bool Escape()
+    {
+        if (_highlighted is { } item && _subBox.Children.Contains(item) && _openItem is { } parent)
+        {
+            CloseSubmenu();
+            Highlight(parent);
+        }
+        else
+            Close();
+        return true;
+    }
+
+    // The letter a key types, or null if it isn't one.
+    static string? LetterOf(Key key)
+    {
+        var name = key.ToString();
+        return name.Length == 1 && char.IsLetter(name[0]) ? name : null;
+    }
 
     // A right-click elsewhere just closes it, rather than opening another under it.
     public override void SecondaryClick(float2 point) => Close();
@@ -111,6 +275,7 @@ public sealed class ContextMenu : Panel
     {
         Owner = owner;
         _minWidth = minWidth;
+        Highlight(null);
         _items.Clear();
         CloseSubmenu();
         Fill(_box, items);
@@ -156,8 +321,10 @@ public sealed class ContextMenu : Panel
                     TextIndent = tickColumn,
                     Padding = 6,
                     Enabled = item.Enabled,
+                    // Lit only while highlighted (see Highlight), so the mouse resting on one the keys have moved
+                    // off doesn't leave two lit.
                     Background = Colors.Transparent,
-                    HoverBackground = Theme.Fade(Theme.Accent, 0.35f),
+                    HoverBackground = Colors.Transparent,
                     PressedBackground = Theme.Fade(Theme.Accent, 0.5f),
                     FocusColor = Theme.Focus,
                 }
@@ -203,6 +370,8 @@ public sealed class ContextMenu : Panel
 
     void CloseSubmenu()
     {
+        if (_highlighted is not null && _subBox.Children.Contains(_highlighted))
+            Highlight(null);
         foreach (var button in _subBox.Children.OfType<Button>())
             _items.Remove(button);
         _subBox.Children.Clear();
@@ -215,18 +384,11 @@ public sealed class ContextMenu : Panel
         Visible = false;
         Owner = null;
         CloseSubmenu();
+        Highlight(null);
     }
 
     public override float2 Measure()
     {
-        // The mouse over an item with a submenu opens it; over any other item of the menu, it closes the one open.
-        if (_box.Children.OfType<Button>().FirstOrDefault(button => button.IsHovered) is { } hovered && hovered != _openItem)
-        {
-            if (_items[hovered].Submenu is not null)
-                OpenSubmenu(hovered);
-            else
-                CloseSubmenu();
-        }
         MeasureBox(_box, _minWidth);
         if (_subBox.Visible)
             MeasureBox(_subBox, 0);
