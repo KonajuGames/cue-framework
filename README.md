@@ -77,8 +77,11 @@ title or anywhere else puts it away. A `MenuItem`'s `Shortcut` is only shown, at
 opened the menu showing, and `PointerMoved` reports the mouse while it's open, which is how the bar follows it.
 Cuedeck's bar sits under its title bar (`UI/AppMenus.cs`).
 
-The menus work from the keyboard with no wiring by the app. Alt and a title's first letter opens that menu, and F10
-the first, with the first item that can be chosen highlighted. In any open `ContextMenu` (a bar's, a dropdown's or a
+The menus work from the keyboard with no wiring by the app. Alt and a title's access letter (its first letter no
+title before it has taken) opens that menu, and F10 the first, with the first item that can be chosen highlighted.
+The access letters are underlined while Alt is held on its own, and while a menu the keys opened is open: `Root`
+learns what's held from `ModifiersHeld`, which `GlfwUiInput` calls on every key, and tells each element's
+`ModifiersChanged`. In any open `ContextMenu` (a bar's, a dropdown's or a
 right-click one), Up, Down, Home and End move the highlight, a letter moves it to the next item starting with it,
 Enter or Space chooses, Right and Left open and close a submenu, and Escape closes it. Left and Right past the ends
 of a bar's menu (`ContextMenu.SteppedOut`) open the menu beside it. A dropdown opens with its choice highlighted.

@@ -541,6 +541,25 @@ public sealed class Root
     }
 
     /// <summary>
+    /// The modifier keys held down now, as last told by <see cref="ModifiersHeld"/>.
+    /// </summary>
+    public Modifiers HeldModifiers { get; private set; }
+
+    /// <summary>
+    /// The modifier keys held down are now <paramref name="held"/>: call on every key going down or up (a modifier
+    /// alone included). A change is passed to every element's <see cref="Element.ModifiersChanged"/>, for a menu bar
+    /// to show its access letters while Alt is held.
+    /// </summary>
+    public void ModifiersHeld(Modifiers held)
+    {
+        if (held == HeldModifiers)
+            return;
+        HeldModifiers = held;
+        foreach (var element in Elements.ToList())
+            element.ModifiersChanged(held);
+    }
+
+    /// <summary>
     /// A key went down or auto-repeated. Tab and Shift+Tab move focus; other keys go to the focused element, and
     /// Escape clears focus if that element doesn't use it. Returns whether the UI used the key; when it didn't, the
     /// app is free to.

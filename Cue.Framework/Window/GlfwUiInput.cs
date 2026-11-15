@@ -140,6 +140,11 @@ public sealed class GlfwUiInput : IDisposable
     void OnKey(GlfwWindow window, GlfwKey key, int scancode, GlfwKeyAction action, GlfwModifier mods) =>
         Guard(() =>
         {
+            // From the keys' state rather than mods, which on a modifier's own press or release may or may not
+            // count it yet. GLFW has updated the state before calling, and releases every key when the window loses
+            // focus, so Alt+Tab doesn't leave Alt held.
+            _ui.ModifiersHeld(HeldModifiers(window));
+
             bool handled;
             if (action == GlfwKeyAction.Release)
             {
@@ -163,6 +168,21 @@ public sealed class GlfwUiInput : IDisposable
             if (Rune.TryCreate(codePoint, out var rune))
                 _ui.TextInput(rune);
         });
+
+    static Modifiers HeldModifiers(GlfwWindow window)
+    {
+        bool Down(GlfwKey left, GlfwKey right) => window.GetKey(left) != GlfwKeyAction.Release || window.GetKey(right) != GlfwKeyAction.Release;
+        var held = Modifiers.None;
+        if (Down(GlfwKey.LeftShift, GlfwKey.RightShift))
+            held |= Modifiers.Shift;
+        if (Down(GlfwKey.LeftControl, GlfwKey.RightControl))
+            held |= Modifiers.Control;
+        if (Down(GlfwKey.LeftAlt, GlfwKey.RightAlt))
+            held |= Modifiers.Alt;
+        if (Down(GlfwKey.LeftSuper, GlfwKey.RightSuper))
+            held |= Modifiers.Super;
+        return held;
+    }
 
     // GLFW's Shift, Control, Alt and Super bits match Modifiers; Caps Lock and Num Lock are dropped.
     static Modifiers ToModifiers(GlfwModifier mods) => (Modifiers)((int)mods & 0xF);

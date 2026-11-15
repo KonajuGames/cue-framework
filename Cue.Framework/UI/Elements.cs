@@ -131,6 +131,12 @@ public abstract class Element
     public virtual bool PreviewKeyDown(Key key, Modifiers modifiers) => false;
 
     /// <summary>
+    /// The modifier keys held down changed to <paramref name="held"/> (see <see cref="Root.ModifiersHeld"/>). Every
+    /// element is told, hidden or not; a panel tells its children.
+    /// </summary>
+    public virtual void ModifiersChanged(Modifiers held) { }
+
+    /// <summary>
     /// The mouse wheel turned by <paramref name="notches"/> (positive towards the left and top) over this element,
     /// while it's <see cref="Root.Hovered"/>. Returns whether it was used; if not, it scrolls whatever it's in.
     /// </summary>
@@ -440,6 +446,12 @@ public class Panel : Element
     }
 
     public override IEnumerable<Element> VisibleChildren => Children.Where(child => child.Visible);
+
+    public override void ModifiersChanged(Modifiers held)
+    {
+        foreach (var child in Children.ToList())
+            child.ModifiersChanged(held);
+    }
 
     public override bool PreviewKeyDown(Key key, Modifiers modifiers)
     {

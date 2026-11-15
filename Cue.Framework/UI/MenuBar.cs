@@ -9,9 +9,10 @@ namespace Cue.Framework.UI;
 /// time it opens, so they can be enabled, ticked or left out by what's going on. Set <see cref="Width"/> for the bar
 /// to run across the window.
 /// <para>
-/// From the keyboard, Alt and a title's first letter opens that menu, and F10 the first (or closes the one open),
+/// From the keyboard, Alt and a title's access letter opens that menu, and F10 the first (or closes the one open),
 /// with its first item highlighted; then the menu's own keys work (see <see cref="ContextMenu"/>), and Left and Right
-/// past its ends go to the menus beside it.
+/// past its ends go to the menus beside it. A title's access letter is its first letter that no title before it
+/// has taken, underlined while Alt is held on its own and while a menu opened from the keyboard is open.
 /// </para>
 /// </summary>
 public sealed class MenuBar : Panel
@@ -19,6 +20,10 @@ public sealed class MenuBar : Panel
     readonly Font _font;
     readonly ContextMenu _menu;
     readonly Dictionary<Button, Func<IReadOnlyList<MenuItem>>> _menus = [];
+
+    // Alt held on its own, and the title whose menu the keys opened (while it's still the one open).
+    bool _altHeld;
+    Button? _openedByKeyboard;
 
     /// <param name="menu">Where the drop-downs open: the app's one context menu, added to the root after
     /// everything it should sit over.</param>
@@ -56,13 +61,51 @@ public sealed class MenuBar : Panel
                 Open(first, byKeyboard: true);
             return true;
         }
-        // Alt and a title's first letter.
+        // Alt and a title's access letter.
         if (modifiers != Modifiers.Alt || key.ToString() is not { Length: 1 } letter)
             return false;
-        if (Titles().FirstOrDefault(title => title.Text.StartsWith(letter, StringComparison.OrdinalIgnoreCase)) is not { } match)
+        if (AccessLetters().FirstOrDefault(access => char.ToUpperInvariant(access.Title.Text[access.Index]) == letter[0]).Title is not { } match)
             return false;
         Open(match, byKeyboard: true);
         return true;
+    }
+
+    public override void ModifiersChanged(Modifiers held) => _altHeld = held == Modifiers.Alt;
+
+    /// <summary>
+    /// Whether the titles' access letters are underlined now.
+    /// </summary>
+    public bool ShowsAccessLetters => _altHeld || (_openedByKeyboard is { } title && _menu.Visible && ReferenceEquals(_menu.Owner, title));
+
+    /// <summary>
+    /// Each title's access letter, its first letter no title before it has taken, as "File" → 'F'; '\0' for a title
+    /// with none.
+    /// </summary>
+    public IReadOnlyList<char> AccessKeys
+    {
+        get
+        {
+            var access = AccessLetters().ToDictionary(a => a.Title, a => char.ToUpperInvariant(a.Title.Text[a.Index]));
+            return Titles().Select(title => access.GetValueOrDefault(title)).ToList();
+        }
+    }
+
+    // Each title with an access letter, and where it is in the title.
+    IEnumerable<(Button Title, int Index)> AccessLetters()
+    {
+        var taken = new HashSet<char>();
+        foreach (var title in Titles())
+        {
+            for (var i = 0; i < title.Text.Length; i++)
+            {
+                var c = char.ToUpperInvariant(title.Text[i]);
+                if (c is >= 'A' and <= 'Z' && taken.Add(c))
+                {
+                    yield return (title, i);
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -113,6 +156,7 @@ public sealed class MenuBar : Panel
     void Open(Button title, bool byKeyboard = false)
     {
         _menu.Show(new float2(title.ScreenPosition.X, ScreenPosition.Y + Size.Y - 1), _menus[title](), owner: title);
+        _openedByKeyboard = byKeyboard ? title : null;
         if (byKeyboard)
             _menu.HighlightFirst();
     }
@@ -131,5 +175,16 @@ public sealed class MenuBar : Panel
         DrawFrame(batch);
         batch.AddRect(ScreenPosition + new float2(0, Size.Y - 1), new float2(Size.X, 1), Theme.PanelBorder);
         DrawChildren(batch);
+        if (!ShowsAccessLetters)
+            return;
+
+        // A line under each access letter, just below the text's baseline.
+        foreach (var (title, index) in AccessLetters())
+        {
+            var text = title.ScreenPosition + new float2(title.Padding + title.BorderWidth + title.TextIndent, title.Padding + title.BorderWidth);
+            var x = text.X + _font.Advance(title.Text.AsSpan(0, index));
+            var width = _font.Advance(title.Text.AsSpan(index, 1));
+            batch.AddRect(new float2(MathF.Round(x), MathF.Round(text.Y + _font.Ascender + 2)), new float2(MathF.Round(width), 1), title.TextColor);
+        }
     }
 }
