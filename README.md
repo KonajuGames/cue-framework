@@ -12,7 +12,7 @@ Vulkan and FreeType bindings, Windows-only like the apps.
 | --- | --- |
 | `Cue.Framework.Window` | `GlfwUiInput` (GLFW's mouse, keys and cursors to the UI's `Root`), `WindowChrome` (the borderless window's Win32 caption and resizing), `WindowsShell` (console, crash box, file dialogs, Recycle Bin, keep-awake) |
 | `Cue.Framework.Rendering` | the Vulkan context, swapchain, `Renderer` (clears a window and draws the UI over it, two frames in flight), GPU buffers and images, barriers, the GLSL loader, and `IPrePass` for an app's own drawing before the UI |
-| `Cue.Framework.UI` | the retained-mode UI: `Element`, `Panel`, `Label`, `Button`, `Root` (input routing, focus, tooltips, drag and drop), `Batch` and `OverlayRenderer` (drawing), `FontAtlas` and `FreeType`, `Png`, the shared `Theme`, keys and modifiers, and the controls: `TextBox`, `Slider`, `Knob`, `Checkbox`, `Dropdown`, `ListView`, `TreeView`, `ScrollPanel`, `ContextMenu`, `ConfirmDialog`, `NamePrompt`, `LevelMeter`, `IconButton`, `Spacer`, `Picture` |
+| `Cue.Framework.UI` | the retained-mode UI: `Element`, `Panel`, `Label`, `Button`, `Root` (input routing, focus, tooltips, drag and drop), `Batch` and `OverlayRenderer` (drawing), `FontAtlas` and `FreeType`, `Png`, the shared `Theme`, keys and modifiers, and the controls: `TextBox`, `Slider`, `Knob`, `Checkbox`, `Dropdown`, `ListView`, `TreeView`, `ScrollPanel`, `ContextMenu`, `ConfirmDialog`, `NamePrompt`, `LevelMeter`, `IconButton`, `Spacer`, `Picture`, `TabView`, `NumberBox` and `ColourPicker` (with `Srgb`, the colour it picks); and layout: `Row`, `Ends`, `Flow`, `FieldGrid`, `Divider`, `FixedWidth`, and `Region`, `ScrollingPage` and `Placeholder` for screens that fill the room they're given |
 | `Cue.Framework` | `ErrorLog` |
 
 `Shaders/ui.vert` and `ui.frag` are copied next to the app's executable, into its `Shaders` folder, and compiled at
@@ -57,6 +57,9 @@ The code was copied from Cuedeck at `04a3cdd`, whose copy was Cuepoint's (at `6f
 - `TitleBar.cs` and `Images.cs` stayed in the apps, apart from `IconButton`, `TitleIcon`, `Spacer` and `Picture`.
 - The `Input` namespace merged into `Cue.Framework.UI`, and the window code moved into `Cue.Framework.Window`.
 - `WindowsShell.ShowFatalError` titles its box with the app's product name.
+- Cuedeck's general-purpose widgets came over after (`Layout.cs`, `TabView`, `NumberBox`, `ColourPicker`). The picker
+  dealt in Cuedeck's show colour, `Rgb`; it deals in `Srgb` now, with the same Godot sums, and Cuedeck's `Rgb`
+  converts to and from it. Its hex box takes hex codes only (Cuedeck's took a six-letter colour name too).
 
 ## Building
 
