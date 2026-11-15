@@ -12,7 +12,7 @@ Vulkan and FreeType bindings, Windows-only like the apps.
 | --- | --- |
 | `Cue.Framework.Window` | `GlfwUiInput` (GLFW's mouse, keys and cursors to the UI's `Root`), `WindowChrome` (the borderless window's Win32 caption and resizing), `WindowsShell` (console, crash box, file dialogs, Recycle Bin, keep-awake) |
 | `Cue.Framework.Rendering` | the Vulkan context, swapchain, `Renderer` (clears a window and draws the UI over it, two frames in flight), GPU buffers and images, barriers, the GLSL loader, and `IPrePass` for an app's own drawing before the UI |
-| `Cue.Framework.UI` | the retained-mode UI: `Element`, `Panel`, `Label`, `Button`, `Root` (input routing, focus, tooltips, drag and drop), `Batch` and `OverlayRenderer` (drawing), `FontAtlas` and `FreeType`, `Png`, the shared `Theme`, keys and modifiers, and the controls: `TextBox`, `Slider`, `Knob`, `Checkbox`, `Dropdown`, `ListView`, `TreeView`, `ScrollPanel`, `ContextMenu`, `ConfirmDialog`, `NamePrompt`, `LevelMeter`, `TitleBar` (see below), `IconButton`, `Spacer`, `Picture`, `TabView`, `NumberBox` and `ColourPicker` (with `Srgb`, the colour it picks); and layout: `Row`, `Ends`, `Flow`, `FieldGrid`, `Divider`, `FixedWidth`, and `Region`, `ScrollingPage` and `Placeholder` for screens that fill the room they're given |
+| `Cue.Framework.UI` | the retained-mode UI: `Element`, `Panel`, `Label`, `Button`, `Root` (input routing, focus, tooltips, drag and drop), `Batch` and `OverlayRenderer` (drawing), `FontAtlas` and `FreeType`, `Png`, the shared `Theme`, keys and modifiers, and the controls: `TextBox`, `Slider`, `Knob`, `Checkbox`, `Dropdown`, `ListView`, `TreeView`, `ScrollPanel`, `ContextMenu`, `MenuBar` (see below), `ConfirmDialog`, `NamePrompt`, `LevelMeter`, `TitleBar` (see below), `IconButton`, `Spacer`, `Picture`, `TabView`, `NumberBox` and `ColourPicker` (with `Srgb`, the colour it picks); and layout: `Row`, `Ends`, `Flow`, `FieldGrid`, `Divider`, `FixedWidth`, and `Region`, `ScrollingPage` and `Placeholder` for screens that fill the room they're given |
 | `Cue.Framework` | `ErrorLog` |
 
 `Shaders/ui.vert` and `ui.frag` are copied next to the app's executable, into its `Shaders` folder, and compiled at
@@ -55,6 +55,27 @@ the left; the clock, the options button and the window's buttons on the right. A
 `FitCentre` is called with the room the middle has, to shorten what's in it on a crowded bar, and `Arranged` is raised
 once everything's placed, for last nudges (`TitleBar.CentreCapitals`). The app updates its widgets each frame beside
 the bar's own `Update`. Cuedeck leaves them empty; Cuepoint's `TitleBarItems` fills them.
+
+### Menus
+
+`MenuBar` is a row of menu titles with drop-downs, which open on the app's one `ContextMenu` (the same one its
+dropdowns and right-click menus use, added to the root last). Each menu is a title and a function giving its items,
+called each time it opens, so items can be enabled, ticked or left out by what's going on:
+
+```csharp
+var bar = new MenuBar(font, contextMenu) { Width = screenWidth };
+bar.AddMenu("File", () => [
+    new("Save", save, Shortcut: "Ctrl+S"),
+    MenuItem.Separator,
+    new("Exit", exit),
+]);
+```
+
+Clicking a title opens its menu below it; with one open, moving onto another title opens that one; clicking the open
+title or anywhere else puts it away. A `MenuItem`'s `Shortcut` is only shown, at the right: the app handles the key.
+`MenuItem.Separator` draws a line (one at either end or beside another is left out). `ContextMenu.Owner` says what
+opened the menu showing, and `PointerMoved` reports the mouse while it's open, which is how the bar follows it.
+Cuedeck's bar sits under its title bar (`UI/AppMenus.cs`).
 
 ### Names
 

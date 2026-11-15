@@ -5,12 +5,26 @@ namespace Cue.Framework.UI;
 /// <summary>
 /// One choice on a <see cref="ContextMenu"/>. One with a <see cref="Submenu"/> opens it beside the menu, when the
 /// mouse comes over it or it's clicked, rather than being chosen itself. <see cref="Checked"/> marks the one that's
-/// in effect now.
+/// in effect now. <see cref="Shortcut"/> is the key that does the same, written muted at the right ("Ctrl+S"); the
+/// menu only shows it, so the app handles the key itself.
 /// </summary>
-public sealed record MenuItem(string Text, Action Chosen, bool Enabled = true, IReadOnlyList<MenuItem>? Submenu = null, bool Checked = false)
+public sealed record MenuItem(
+    string Text,
+    Action Chosen,
+    bool Enabled = true,
+    IReadOnlyList<MenuItem>? Submenu = null,
+    bool Checked = false,
+    string? Shortcut = null
+)
 {
     public MenuItem(string text, IReadOnlyList<MenuItem> submenu, bool enabled = true)
         : this(text, () => { }, enabled && submenu.Count > 0, submenu) { }
+
+    /// <summary>
+    /// A line between groups of items. Put this one in the list: it's told apart by being this very item. One at
+    /// either end, or next to another, is left out, so items an app leaves out needn't take theirs with them.
+    /// </summary>
+    public static MenuItem Separator { get; } = new("", () => { }, false);
 }
 
 /// <summary>
@@ -22,6 +36,7 @@ public sealed class ContextMenu : Panel
 {
     const float EDGE = 4;
     const float ARROW = 4;
+    const float SHORTCUT_GAP = 24;
 
     readonly Font _font;
     readonly Panel _box;
@@ -36,6 +51,18 @@ public sealed class ContextMenu : Panel
     float _minWidth;
 
     public float2 ScreenSize { get; set; }
+
+    /// <summary>
+    /// What opened the menu showing now, as given to <see cref="Show"/>; null while it's put away. A
+    /// <see cref="MenuBar"/> knows by it whether the menu's still one of its own.
+    /// </summary>
+    public object? Owner { get; private set; }
+
+    /// <summary>
+    /// The mouse moved while the menu's open, anywhere on the screen (the menu covers it all): for a
+    /// <see cref="MenuBar"/> to open the menu of the title it's moved onto.
+    /// </summary>
+    public event Action<float2>? PointerMoved;
 
     public ContextMenu(Font font)
     {
@@ -70,15 +97,19 @@ public sealed class ContextMenu : Panel
     public override bool IsInteractive => true;
     public override Cursor Cursor => Cursor.Arrow;
 
+    public override void PointerMove(float2 point) => PointerMoved?.Invoke(point);
+
     // A right-click elsewhere just closes it, rather than opening another under it.
     public override void SecondaryClick(float2 point) => Close();
 
     /// <summary>
     /// Shows <paramref name="items"/> with the menu's top-left corner at <paramref name="at"/>, moved in to stay on
-    /// the screen, at least <paramref name="minWidth"/> wide.
+    /// the screen, at least <paramref name="minWidth"/> wide. <paramref name="owner"/> is what opened it, kept as
+    /// <see cref="Owner"/> while it shows.
     /// </summary>
-    public void Show(float2 at, IEnumerable<MenuItem> items, float minWidth = 0)
+    public void Show(float2 at, IEnumerable<MenuItem> items, float minWidth = 0, object? owner = null)
     {
+        Owner = owner;
         _minWidth = minWidth;
         _items.Clear();
         CloseSubmenu();
@@ -110,10 +141,15 @@ public sealed class ContextMenu : Panel
         box.Children.Clear();
 
         // Where any item is ticked, every item's text moves along to leave a column for the ticks, so they line up.
-        var list = items.ToList();
+        var list = WithoutStraySeparators(items);
         var tickColumn = list.Any(item => item.Checked) ? _font.Advance("•") + 6 : 0;
         foreach (var item in list)
         {
+            if (IsSeparator(item))
+            {
+                box.Add(new Divider(0));
+                continue;
+            }
             var button = box.Add(
                 new Button(_font, item.Text)
                 {
@@ -140,6 +176,22 @@ public sealed class ContextMenu : Panel
         }
     }
 
+    static bool IsSeparator(MenuItem item) => ReferenceEquals(item, MenuItem.Separator);
+
+    // The items with no separator at either end or next to another.
+    static List<MenuItem> WithoutStraySeparators(IEnumerable<MenuItem> items)
+    {
+        var list = new List<MenuItem>();
+        foreach (var item in items)
+        {
+            if (!IsSeparator(item) || (list.Count > 0 && !IsSeparator(list[^1])))
+                list.Add(item);
+        }
+        if (list.Count > 0 && IsSeparator(list[^1]))
+            list.RemoveAt(list.Count - 1);
+        return list;
+    }
+
     void OpenSubmenu(Button button)
     {
         if (_openItem == button || _items[button].Submenu is not { } submenu)
@@ -161,6 +213,7 @@ public sealed class ContextMenu : Panel
     public void Close()
     {
         Visible = false;
+        Owner = null;
         CloseSubmenu();
     }
 
@@ -180,15 +233,21 @@ public sealed class ContextMenu : Panel
         return Size = ScreenSize;
     }
 
-    static void MeasureBox(Panel box, float minWidth)
+    void MeasureBox(Panel box, float minWidth)
     {
-        // Every item as wide as the widest, so the highlight runs the full width, with room for a submenu's arrow.
-        foreach (var button in box.Children.OfType<Button>())
+        // Every item as wide as the widest, so the highlight runs the full width, with room for a submenu's arrow
+        // and the shortcuts' column; the separators as wide too.
+        var buttons = box.Children.OfType<Button>().ToList();
+        foreach (var button in buttons)
             button.MinSize = float2.Zero;
         box.Measure();
-        var width = box.Children.Count > 0 ? box.Children.Max(child => child.Size.X) + 4 * ARROW : 0;
-        foreach (var button in box.Children.OfType<Button>())
-            button.MinSize = new float2(MathF.Max(width, MathF.Max(160, minWidth - 2 * (box.Padding + box.BorderWidth))), 0);
+        var shortcuts = buttons.Select(button => _items[button].Shortcut is { } keys ? _font.Advance(keys) : 0).DefaultIfEmpty(0).Max();
+        var width = buttons.Count > 0 ? buttons.Max(button => button.Size.X) + 4 * ARROW + (shortcuts > 0 ? shortcuts + SHORTCUT_GAP : 0) : 0;
+        width = MathF.Max(width, MathF.Max(160, minWidth - 2 * (box.Padding + box.BorderWidth)));
+        foreach (var button in buttons)
+            button.MinSize = new float2(width, 0);
+        foreach (var divider in box.Children.OfType<Divider>())
+            divider.Length = width;
         box.Measure();
     }
 
@@ -228,6 +287,16 @@ public sealed class ContextMenu : Panel
                     continue;
                 var at = button.ScreenPosition + new float2(button.Padding + button.BorderWidth, MathF.Round((button.Size.Y - _font.LineHeight) / 2));
                 batch.AddText(_font, "•", at, button.TextColor);
+            }
+            // The shortcuts, muted, at the right.
+            foreach (var button in box.Children.OfType<Button>())
+            {
+                if (_items[button].Shortcut is not { } keys)
+                    continue;
+                var color = button.Enabled ? Theme.Muted : Theme.Muted * new float4(1, 1, 1, 0.4f);
+                var x = button.ScreenPosition.X + button.Size.X - button.Padding - button.BorderWidth - _font.Advance(keys);
+                var y = button.ScreenPosition.Y + MathF.Round((button.Size.Y - _font.LineHeight) / 2);
+                batch.AddText(_font, keys, new float2(MathF.Round(x), y), color);
             }
         }
         // A small arrow at the right of each item with a submenu.
