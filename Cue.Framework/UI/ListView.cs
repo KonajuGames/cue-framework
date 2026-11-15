@@ -48,6 +48,20 @@ public sealed class ListColumn<T>(string title, float width, Func<T, string> tex
     /// An icon to show for an item, before any text, tinted with the colour given; none if null.
     /// </summary>
     public Func<T, (Image Image, float4 Tint)?>? Icon { get; init; }
+
+    /// <summary>
+    /// Letters to show for an item as solid squares of their colours, side by side from the column's left edge,
+    /// each centred in its square in <see cref="BadgeTextColor"/>: tags such as which deck a song is loaded on.
+    /// None if null or empty. They're drawn before any icon or text.
+    /// </summary>
+    public Func<T, IReadOnlyList<(string Text, float4 Color)>?>? Badges { get; init; }
+
+    public float4 BadgeTextColor { get; init; } = Colors.Hex(0x000000);
+
+    /// <summary>
+    /// The font for the <see cref="Badges"/>' letters; the list's if null.
+    /// </summary>
+    public Font? BadgeFont { get; init; }
 }
 
 /// <summary>
@@ -320,6 +334,36 @@ public sealed class ListView<T> : Element
 
     public override float2 Measure() => Size = new float2(ContentWidth, Math.Max(_items.Count, 1) * RowHeight);
 
+    /// <summary>
+    /// The space either side of each of a column's <see cref="ListColumn{T}.Badges"/>.
+    /// </summary>
+    const float BADGE_GAP = 3;
+
+    /// <summary>
+    /// Draws <paramref name="text"/> with its ink centred in a square: what the glyphs actually cover, not their line
+    /// box, which leaves room for descenders and accents that would push capitals off centre.
+    /// </summary>
+    static void DrawCentred(Batch batch, Font font, string text, float2 at, float side, float4 color)
+    {
+        float penX = 0, left = float.MaxValue, right = float.MinValue, top = float.MaxValue, bottom = float.MinValue;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var glyph = font.GetGlyph(rune.Value);
+            if (glyph.Size.X > 0 && glyph.Size.Y > 0)
+            {
+                var x = MathF.Round(penX) + glyph.Bearing.X;
+                var y = font.Ascender - glyph.Bearing.Y;
+                (left, right) = (MathF.Min(left, x), MathF.Max(right, x + glyph.Size.X));
+                (top, bottom) = (MathF.Min(top, y), MathF.Max(bottom, y + glyph.Size.Y));
+            }
+            penX += glyph.Advance;
+        }
+        if (left > right)
+            return;
+        var origin = at + new float2((side - (right - left)) / 2 - left, (side - (bottom - top)) / 2 - top);
+        batch.AddText(font, text, new float2(MathF.Round(origin.X), MathF.Round(origin.Y)), color);
+    }
+
     public override void Draw(Batch batch)
     {
         if (_items.Count == 0)
@@ -358,6 +402,25 @@ public sealed class ListView<T> : Element
                 var text = column.Text(_items[row]);
                 var cellLeft = x + CellPadding;
                 var cellWidth = MathF.Max(0, column.Width - 2 * CellPadding);
+
+                if (column.Badges?.Invoke(_items[row]) is { Count: > 0 } badges)
+                {
+                    // Squares a little shorter than the row, from just inside the column's edge rather than its
+                    // padding, so two fit a narrow column.
+                    batch.PushClip(new float2(x, rowPosition.Y), new float2(column.Width, RowHeight));
+                    var side = MathF.Round(RowHeight - 8);
+                    var badgeX = x + BADGE_GAP;
+                    foreach (var (badgeText, badgeColor) in badges)
+                    {
+                        var square = new float2(badgeX, MathF.Round(rowPosition.Y + (RowHeight - side) / 2));
+                        batch.AddRect(square, new float2(side, side), badgeColor);
+                        DrawCentred(batch, column.BadgeFont ?? Font, badgeText, square, side, column.BadgeTextColor);
+                        badgeX += side + BADGE_GAP;
+                    }
+                    batch.PopClip();
+                    cellLeft = MathF.Max(cellLeft, badgeX + 2);
+                    cellWidth = MathF.Max(0, x + column.Width - CellPadding - cellLeft);
+                }
 
                 batch.PushClip(new float2(cellLeft, rowPosition.Y), new float2(cellWidth, RowHeight));
                 if (column.Icon?.Invoke(_items[row]) is var (image, tint))
