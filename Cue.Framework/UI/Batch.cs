@@ -333,10 +333,14 @@ public sealed class Batch
         var faded = color with { W = 0 };
         var core = MathF.Max(0, radius - 0.5f);
         var edge = radius + 0.5f;
+        // Each corner's direction, worked out once (the last is the first again).
+        Span<float2> dirs = segments < 256 ? stackalloc float2[segments + 1] : new float2[segments + 1];
+        for (var i = 0; i < segments; i++)
+            dirs[i] = new float2(MathF.Cos(MathF.Tau * i / segments), MathF.Sin(MathF.Tau * i / segments));
+        dirs[segments] = dirs[0];
         for (var i = 0; i < segments; i++)
         {
-            var d0 = new float2(MathF.Cos(MathF.Tau * i / segments), MathF.Sin(MathF.Tau * i / segments));
-            var d1 = new float2(MathF.Cos(MathF.Tau * (i + 1) / segments), MathF.Sin(MathF.Tau * (i + 1) / segments));
+            var (d0, d1) = (dirs[i], dirs[i + 1]);
             if (core > 0)
                 AddTriangle(centre, centre + d0 * core, centre + d1 * core, color);
             AddTriangle(centre + d0 * core, centre + d0 * edge, centre + d1 * edge, color, faded, faded);
@@ -391,9 +395,24 @@ public sealed class Batch
     /// </summary>
     void AddPolygon(Span<Vertex> polygon)
     {
-        var points = polygon;
+        ReadOnlySpan<Vertex> points = polygon;
         if (_clips.TryPeek(out var clip))
         {
+            // Wholly outside one edge: nothing to draw; wholly inside: drawn as it is. Only one across an edge is cut.
+            var lo = polygon[0].Position;
+            var hi = lo;
+            foreach (var v in polygon[1..])
+            {
+                lo = float2.Min(lo, v.Position);
+                hi = float2.Max(hi, v.Position);
+            }
+            if (hi.X <= clip.Min.X || lo.X >= clip.Max.X || hi.Y <= clip.Min.Y || lo.Y >= clip.Max.Y)
+                return;
+            if (lo.X >= clip.Min.X && hi.X <= clip.Max.X && lo.Y >= clip.Min.Y && hi.Y <= clip.Max.Y)
+            {
+                AddFan(polygon);
+                return;
+            }
             // Sutherland-Hodgman against each edge of the clip rectangle in turn.
             Span<Vertex> a = stackalloc Vertex[polygon.Length + 8];
             Span<Vertex> b = stackalloc Vertex[polygon.Length + 8];
@@ -421,8 +440,17 @@ public sealed class Batch
             }
             if (n < 3)
                 return;
-            points = a[..n].ToArray();
+            AddFan(a[..n]);
+            return;
         }
+        AddFan(points);
+    }
+
+    /// <summary>
+    /// A convex polygon's triangles, fanned from its first corner.
+    /// </summary>
+    void AddFan(ReadOnlySpan<Vertex> points)
+    {
         for (var i = 1; i + 1 < points.Length; i++)
         {
             _vertices.Add(points[0]);
