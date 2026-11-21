@@ -61,6 +61,11 @@ public sealed record ThemePalette
     public float ScrimStrength { get; init; } = 1;
 
     /// <summary>
+    /// How strong a list's every other row is tinted, to follow a row across; before <see cref="InkStrength"/>.
+    /// </summary>
+    public float AlternateRowTint { get; init; } = 0.03f;
+
+    /// <summary>
     /// Whether it's light, for colours an app keeps that need their own darker or lighter shade.
     /// </summary>
     public bool IsLight { get; init; }
@@ -83,7 +88,8 @@ public static class Theme
         PanelBorder = Colors.Hex(0x2E3039),
         Well = Colors.Hex(0x0E0F12),
         Text = Colors.Hex(0xE4E5EC),
-        Muted = Colors.Hex(0x8C8E9C),
+        // A shade brighter than it was, so labels on buttons read at 4.5 to 1.
+        Muted = Colors.Hex(0x8F919F),
         Faint = Colors.Hex(0x5A5C68),
         Accent = Colors.Hex(0xEB7828),
         Focus = Colors.Hex(0x7AB8FF),
@@ -97,6 +103,8 @@ public static class Theme
         Placeholder = Colors.Hex(0x6A6A78),
         Handle = Colors.Hex(0xE6E6EE),
         Ink = Colors.Hex(0xFFFFFF),
+        // Faint: just enough to follow a row, without banding the list.
+        AlternateRowTint = 0.015f,
     };
 
     public static readonly ThemePalette Light = new()
@@ -239,6 +247,11 @@ public static class Theme
     public static float4 OnColour => Colors.Hex(0x0B0C0F);
 
     public static bool IsLight => Current.IsLight;
+
+    /// <summary>
+    /// The tint on a list's every other row.
+    /// </summary>
+    public static float4 AlternateRow => Tint(Current.AlternateRowTint);
 
     /// <summary>
     /// A faint tint over the panels at <paramref name="alpha"/>, for hovered rows, tracks and dividers: white on a dark

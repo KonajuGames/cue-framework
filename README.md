@@ -113,7 +113,7 @@ The code was copied from Cuedeck at `04a3cdd`, whose copy was Cuepoint's (at `6f
   Light and High contrast, each a `ThemePalette`. Besides the panels and text, a look has the fills of buttons,
   fields and selections, and `Theme.Tint(alpha)` for faint tints over the panels (white on a dark look, black on a
   light one) and `Theme.Scrim(alpha)` for dimming the screen behind a dialog, which the framework's controls now use
-  in place of fixed colours. Colours that read on any background (a level meter's, a status's) stay fixed.
+  in place of fixed colours, and `Theme.AlternateRow` for lists' every other row (fainter on Dark). Colours that read on any background (a level meter's, a status's) stay fixed.
 - `Images.cs` stayed in the apps, apart from `Picture`. The title bar came over after, as the frame both apps' bars
   shared with places for each app's widgets; the clock's capitals are centred now in Cuedeck too, as Cuepoint's were.
 - The `Input` namespace merged into `Cue.Framework.UI`, and the window code moved into `Cue.Framework.Window`.

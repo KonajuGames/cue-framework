@@ -105,7 +105,7 @@ public sealed class ListView<T> : Element
 
     public float4 TextColor { get; set; } = Theme.Text;
     public float4 MutedColor { get; set; } = Theme.Muted;
-    public float4 AlternateRow { get; set; } = Theme.Tint(0.025f);
+    public float4 AlternateRow { get; set; } = Theme.AlternateRow;
     public float4 HoverRow { get; set; } = Theme.Tint(0.07f);
     public float4 SelectedRow { get; set; } = Theme.Fade(Theme.Selection, 0.7f);
 
