@@ -24,7 +24,7 @@ public sealed class ConfirmDialog : Panel
     {
         _root = root;
         Visible = false;
-        Background = Colors.Hex(0x000000, 0.6f);
+        Background = Theme.Scrim(0.6f);
 
         _box = Add(
             new Panel
@@ -44,9 +44,9 @@ public sealed class ConfirmDialog : Panel
             new Button(bold, "")
             {
                 MinSize = new float2(90, 0),
-                Background = Colors.Hex(0xB83A3A),
-                HoverBackground = Colors.Hex(0xD04848),
-                PressedBackground = Colors.Hex(0x962E2E),
+                Background = Theme.Danger,
+                HoverBackground = Theme.DangerHover,
+                PressedBackground = Theme.DangerPressed,
                 FocusColor = Theme.Focus,
             }
         );
@@ -93,9 +93,9 @@ public sealed class ConfirmDialog : Panel
     {
         // A choice between ways to go ahead (Save, Don't Save) isn't a warning, so its button isn't red.
         var warning = alternative is null;
-        _confirm.Background = warning ? Colors.Hex(0xB83A3A) : Colors.Hex(0x3D6FB8);
-        _confirm.HoverBackground = warning ? Colors.Hex(0xD04848) : Colors.Hex(0x4A80CC);
-        _confirm.PressedBackground = warning ? Colors.Hex(0x962E2E) : Colors.Hex(0x335E9C);
+        _confirm.Background = warning ? Theme.Danger : Theme.Selection;
+        _confirm.HoverBackground = warning ? Theme.DangerHover : Theme.Mix(Theme.Selection, Colors.White, 0.15f);
+        _confirm.PressedBackground = warning ? Theme.DangerPressed : Theme.Mix(Theme.Selection, Colors.Hex(0x000000), 0.15f);
         _title.Text = title;
         _message.Text = message;
         _confirm.Text = confirm;

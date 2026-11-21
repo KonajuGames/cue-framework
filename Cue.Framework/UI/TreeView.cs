@@ -54,19 +54,19 @@ public sealed class TreeView<T> : Element
     public float Cell { get; set; } = 17;
     public float MinWidth { get; set; }
 
-    public float4 TextColor { get; set; } = Colors.White;
-    public float4 ArrowColor { get; set; } = Colors.Hex(0x9A9AA8);
+    public float4 TextColor { get; set; } = Theme.Text;
+    public float4 ArrowColor { get; set; } = Theme.Muted;
 
     /// <summary>
     /// The arrows by an item that can be opened, pointing right while it's closed and down while it's open, tinted
     /// <see cref="ArrowColor"/>; none are drawn if not given.
     /// </summary>
     public (Image Collapsed, Image Expanded)? Arrows { get; set; }
-    public float4 HoverRow { get; set; } = Colors.Hex(0xFFFFFF, 0.07f);
-    public float4 SelectedRow { get; set; } = Colors.Hex(0x3D6FB8, 0.7f);
-    public float4 SelectedRowUnfocused { get; set; } = Colors.Hex(0x3D6FB8, 0.35f);
+    public float4 HoverRow { get; set; } = Theme.Tint(0.07f);
+    public float4 SelectedRow { get; set; } = Theme.Fade(Theme.Selection, 0.7f);
+    public float4 SelectedRowUnfocused { get; set; } = Theme.Fade(Theme.Selection, 0.35f);
 
-    public float4 DropColor { get; set; } = Colors.Hex(0xEB7828);
+    public float4 DropColor { get; set; } = Theme.Accent;
 
     /// <summary>
     /// The selection changed, by mouse or keyboard.

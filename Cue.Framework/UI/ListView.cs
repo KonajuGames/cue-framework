@@ -103,16 +103,16 @@ public sealed class ListView<T> : Element
 
     public float CellPadding { get; set; } = 8;
 
-    public float4 TextColor { get; set; } = Colors.White;
-    public float4 MutedColor { get; set; } = Colors.Hex(0x9A9AA8);
-    public float4 AlternateRow { get; set; } = Colors.Hex(0xFFFFFF, 0.025f);
-    public float4 HoverRow { get; set; } = Colors.Hex(0xFFFFFF, 0.07f);
-    public float4 SelectedRow { get; set; } = Colors.Hex(0x3D6FB8, 0.7f);
+    public float4 TextColor { get; set; } = Theme.Text;
+    public float4 MutedColor { get; set; } = Theme.Muted;
+    public float4 AlternateRow { get; set; } = Theme.Tint(0.025f);
+    public float4 HoverRow { get; set; } = Theme.Tint(0.07f);
+    public float4 SelectedRow { get; set; } = Theme.Fade(Theme.Selection, 0.7f);
 
     /// <summary>
     /// The selected rows' colour while the list doesn't have focus: still visible, but not shouting.
     /// </summary>
-    public float4 SelectedRowUnfocused { get; set; } = Colors.Hex(0x3D6FB8, 0.35f);
+    public float4 SelectedRowUnfocused { get; set; } = Theme.Fade(Theme.Selection, 0.35f);
 
     /// <summary>
     /// How far along some work on an item is, from 0 to 1, or null if there's none: drawn as a bar filling the row's
@@ -120,7 +120,7 @@ public sealed class ListView<T> : Element
     /// </summary>
     public Func<T, float?>? RowProgress { get; set; }
 
-    public float4 ProgressColor { get; set; } = Colors.Hex(0xEB7828, 0.35f);
+    public float4 ProgressColor { get; set; } = Theme.Fade(Theme.Accent, 0.35f);
 
     /// <summary>
     /// What to call an item on the label that follows it when it's dragged; rows can't be dragged if null.
@@ -132,7 +132,7 @@ public sealed class ListView<T> : Element
     /// </summary>
     public bool CanReorder { get; set; }
 
-    public float4 DropLineColor { get; set; } = Colors.Hex(0xEB7828);
+    public float4 DropLineColor { get; set; } = Theme.Accent;
 
     /// <summary>
     /// The rows drawn last frame, by index into <see cref="Items"/>: those in view. Empty before the first draw, and
@@ -616,8 +616,8 @@ public sealed class ListHeader<T> : Element
         };
     }
 
-    public float4 Color { get; set; } = Colors.Hex(0x9A9AA8);
-    public float4 Divider { get; set; } = Colors.Hex(0xFFFFFF, 0.12f);
+    public float4 Color { get; set; } = Theme.Muted;
+    public float4 Divider { get; set; } = Theme.Tint(0.12f);
 
     /// <summary>
     /// The column the list is sorted by, for its arrow; null if none.

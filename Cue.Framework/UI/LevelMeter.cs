@@ -35,7 +35,7 @@ public sealed class LevelMeter : Element
     public float4 Green { get; set; } = Colors.Hex(0x3DDC6A);
     public float4 Yellow { get; set; } = Colors.Hex(0xF2C53D);
     public float4 Red { get; set; } = Colors.Hex(0xF04848);
-    public float4 Unlit { get; set; } = Colors.Hex(0xFFFFFF, 0.07f);
+    public float4 Unlit { get; set; } = Theme.Tint(0.07f);
 
     readonly float[] _shown;
     readonly float[] _held;

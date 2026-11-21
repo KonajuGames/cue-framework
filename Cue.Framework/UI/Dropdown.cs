@@ -62,8 +62,8 @@ public sealed class Dropdown<T> : Element, IOpensMenu
     public bool Enabled { get; set; } = true;
 
     public float4 TextColor { get; set; } = Theme.Text;
-    public float4 Background { get; set; } = Colors.Hex(0x2A2A35);
-    public float4 HoverBackground { get; set; } = Colors.Hex(0x3A3A48);
+    public float4 Background { get; set; } = Theme.Control;
+    public float4 HoverBackground { get; set; } = Theme.ControlHover;
     public float4 ArrowColor { get; set; } = Theme.Muted;
     public float4 FocusColor { get; set; } = Theme.Focus;
 

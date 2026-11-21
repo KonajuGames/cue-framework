@@ -41,10 +41,10 @@ public sealed class ScrollPanel : Panel
     /// </summary>
     public float ScrollbarHitWidth { get; set; } = 12;
 
-    public float4 ScrollbarTrack { get; set; } = Colors.Hex(0xFFFFFF, 0.06f);
-    public float4 ScrollbarThumb { get; set; } = Colors.Hex(0xFFFFFF, 0.3f);
-    public float4 ScrollbarThumbHover { get; set; } = Colors.Hex(0xFFFFFF, 0.45f);
-    public float4 ScrollbarThumbDragging { get; set; } = Colors.Hex(0xFFFFFF, 0.6f);
+    public float4 ScrollbarTrack { get; set; } = Theme.Tint(0.06f);
+    public float4 ScrollbarThumb { get; set; } = Theme.Tint(0.3f);
+    public float4 ScrollbarThumbHover { get; set; } = Theme.Tint(0.45f);
+    public float4 ScrollbarThumbDragging { get; set; } = Theme.Tint(0.6f);
 
     /// <summary>
     /// Animate wheel and page moves rather than jumping. On by default.

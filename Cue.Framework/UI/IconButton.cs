@@ -27,8 +27,8 @@ public sealed class IconButton(TitleIcon icon) : Element
     public Image? Picture { get; init; }
     public float2 FixedSize { get; set; } = new(46, 34);
     public float4 IconColor { get; set; } = Theme.Text;
-    public float4 HoverBackground { get; set; } = Colors.Hex(0xFFFFFF, 0.1f);
-    public float4 PressedBackground { get; set; } = Colors.Hex(0xFFFFFF, 0.05f);
+    public float4 HoverBackground { get; set; } = Theme.Tint(0.1f);
+    public float4 PressedBackground { get; set; } = Theme.Tint(0.05f);
 
     public override bool IsInteractive => true;
     public override Cursor Cursor => Cursor.Arrow;

@@ -265,7 +265,7 @@ public sealed class Label(Font font, string text = "") : Element
 
     public Font Font { get; set; } = font;
     public string Text { get; set; } = text;
-    public float4 Color { get; set; } = Colors.White;
+    public float4 Color { get; set; } = Theme.Text;
 
     /// <summary>
     /// The widest it takes up; longer text is cut off there, or with <see cref="Wrap"/>, carried onto more lines.
@@ -513,9 +513,9 @@ public sealed class Button : Panel
     {
         _label = Add(new Label(font, text));
         Padding = 6;
-        Background = Colors.Hex(0x2A2A35);
-        HoverBackground = Colors.Hex(0x3A3A48);
-        PressedBackground = Colors.Hex(0x1E1E26);
+        Background = Theme.Control;
+        HoverBackground = Theme.ControlHover;
+        PressedBackground = Theme.ControlPressed;
     }
 
     public string Text
@@ -538,7 +538,7 @@ public sealed class Button : Panel
     /// </summary>
     public bool Lit { get; set; }
 
-    public float4 LitBackground { get; set; } = Colors.Hex(0x3D6FB8);
+    public float4 LitBackground { get; set; } = Theme.Selection;
 
     /// <summary>
     /// The button was right-clicked.
@@ -573,7 +573,7 @@ public sealed class Button : Panel
     /// <summary>
     /// The ring drawn around the button while it has keyboard focus.
     /// </summary>
-    public float4 FocusColor { get; set; } = Colors.Hex(0x7AB8FF);
+    public float4 FocusColor { get; set; } = Theme.Focus;
 
     /// <summary>
     /// A disabled button draws faded and ignores the mouse and keyboard.
@@ -588,7 +588,7 @@ public sealed class Button : Panel
 
     public Font? HintFont { get; set; }
 
-    public float4 HintColor { get; set; } = Colors.Hex(0xFFFFFF, 0.3f);
+    public float4 HintColor { get; set; } = Theme.Tint(0.3f);
 
     public override bool IsInteractive => Enabled;
 

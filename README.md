@@ -40,6 +40,8 @@ What stays in each app:
 - its main screen, `Images` (the logo and icons are embedded in the app, read by name) and `AppTheme` (the colours
   only it uses, beside the shared `Theme`);
 - what it puts in the title bar (below);
+- which look it uses: `Theme.Use(ThemeKind.Dark / Light / HighContrast)`, called before any element is made, as
+  elements take their colours as they're made, so a new look shows the next time an app starts;
 - its own GPU drawing, given to the renderer as an `IPrePass` (Cuedeck's 3D visualizer is its `ScenePass`).
 
 ### The title bar
@@ -107,7 +109,11 @@ The code was copied from Cuedeck at `04a3cdd`, whose copy was Cuepoint's (at `6f
 - Types are `public`, being in a library now, as are a few members the apps and their tests use
   (`Element.RaiseClicked`, `Element.VisibleChildren`, `Font.GetGlyph`, `ContextMenu.ItemTexts` and `Choose`).
 - `Renderer` no longer draws Cuedeck's 3D scene itself: it records an `IPrePass` before the UI, if it's given one.
-- `Theme` keeps the colours both apps use; the rest moved to each app's `AppTheme`.
+- `Theme` keeps the colours both apps use; the rest moved to each app's `AppTheme`. It has three looks since: Dark,
+  Light and High contrast, each a `ThemePalette`. Besides the panels and text, a look has the fills of buttons,
+  fields and selections, and `Theme.Tint(alpha)` for faint tints over the panels (white on a dark look, black on a
+  light one) and `Theme.Scrim(alpha)` for dimming the screen behind a dialog, which the framework's controls now use
+  in place of fixed colours. Colours that read on any background (a level meter's, a status's) stay fixed.
 - `Images.cs` stayed in the apps, apart from `Picture`. The title bar came over after, as the frame both apps' bars
   shared with places for each app's widgets; the clock's capitals are centred now in Cuedeck too, as Cuepoint's were.
 - The `Input` namespace merged into `Cue.Framework.UI`, and the window code moved into `Cue.Framework.Window`.

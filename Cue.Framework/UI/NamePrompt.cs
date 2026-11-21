@@ -23,7 +23,7 @@ public sealed class NamePrompt : Panel
     {
         _root = root;
         Visible = false;
-        Background = Colors.Hex(0x000000, 0.6f);
+        Background = Theme.Scrim(0.6f);
 
         _box = Add(
             new Panel
@@ -38,7 +38,7 @@ public sealed class NamePrompt : Panel
         );
         _title = _box.Add(new Label(heading) { Color = Theme.Text });
         Box = _box.Add(new TextBox(body) { Width = 380, FocusColor = Theme.Focus });
-        _problem = _box.Add(new Label(body) { Color = Colors.Hex(0xEE6666) });
+        _problem = _box.Add(new Label(body) { Color = Theme.Warning });
         var buttons = _box.Add(new Panel { Direction = Direction.Horizontal, Spacing = 8 });
         var ok = buttons.Add(new Button(bold, "OK") { MinSize = new float2(90, 0), FocusColor = Theme.Focus });
         var cancel = buttons.Add(new Button(bold, "Cancel") { MinSize = new float2(90, 0), FocusColor = Theme.Focus });

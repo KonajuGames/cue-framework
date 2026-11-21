@@ -258,9 +258,9 @@ public sealed class Root
         {
             var size = drag.Font.Measure(drag.Label) + new float2(12, 8);
             var at = mouse + new float2(16, 14);
-            batch.AddRect(at, size, Colors.Hex(0x23242C, 0.95f));
-            batch.AddBorder(at, size, 1, Colors.Hex(0xFFFFFF, 0.25f));
-            batch.AddText(drag.Font, drag.Label, at + new float2(6, 4), Colors.White);
+            batch.AddRect(at, size, Theme.Fade(Theme.PanelRaised, 0.95f));
+            batch.AddBorder(at, size, 1, Theme.Tint(0.25f));
+            batch.AddText(drag.Font, drag.Label, at + new float2(6, 4), Theme.Text);
         }
 
         DrawTooltip(batch);
@@ -297,9 +297,9 @@ public sealed class Root
         at = float2.Max(at, float2.Zero);
         at = new float2(MathF.Round(at.X), MathF.Round(at.Y));
 
-        batch.AddRect(at, size, Colors.Hex(0x23242C, 0.97f));
-        batch.AddBorder(at, size, 1, Colors.Hex(0xFFFFFF, 0.25f));
-        batch.AddText(font, text, at + new float2(8, 5), Colors.Hex(0xE4E5EC));
+        batch.AddRect(at, size, Theme.Fade(Theme.PanelRaised, 0.97f));
+        batch.AddBorder(at, size, 1, Theme.Tint(0.25f));
+        batch.AddText(font, text, at + new float2(8, 5), Theme.Text);
     }
 
     /// <summary>

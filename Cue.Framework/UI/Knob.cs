@@ -67,7 +67,7 @@ public sealed class Knob : Element
     /// </summary>
     public float4? MinColor { get; set; }
 
-    public float4 TrackColor { get; set; } = Colors.Hex(0xFFFFFF, 0.13f);
+    public float4 TrackColor { get; set; } = Theme.Tint(0.13f);
     public float4 PointerColor { get; set; } = Colors.White;
     public float4 FocusColor { get; set; } = Theme.Focus;
 

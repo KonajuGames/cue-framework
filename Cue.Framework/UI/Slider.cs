@@ -61,12 +61,12 @@ public class Slider : Element
     /// </summary>
     public List<float> Marks { get; } = [];
 
-    public float4 TrackColor { get; set; } = Colors.Hex(0xFFFFFF, 0.12f);
-    public float4 FillColor { get; set; } = Colors.Hex(0xEB7828);
-    public float4 HandleColor { get; set; } = Colors.Hex(0xE6E6EE);
-    public float4 HandleHoverColor { get; set; } = Colors.White;
-    public float4 MarkColor { get; set; } = Colors.Hex(0xFFFFFF, 0.45f);
-    public float4 FocusColor { get; set; } = Colors.Hex(0x7AB8FF);
+    public float4 TrackColor { get; set; } = Theme.Tint(0.12f);
+    public float4 FillColor { get; set; } = Theme.Accent;
+    public float4 HandleColor { get; set; } = Theme.Handle;
+    public float4 HandleHoverColor { get; set; } = Theme.IsLight ? Colors.Hex(0x000000) : Colors.White;
+    public float4 MarkColor { get; set; } = Theme.Tint(0.45f);
+    public float4 FocusColor { get; set; } = Theme.Focus;
 
     public bool Enabled { get; set; } = true;
 

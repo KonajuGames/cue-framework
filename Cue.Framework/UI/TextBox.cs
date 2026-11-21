@@ -42,12 +42,12 @@ public class TextBox(Font font) : Element
     string Shown => Secret ? new string('•', _text.Length) : _text;
     public int MaxLength { get; set; } = 256;
 
-    public float4 Background { get; set; } = Colors.Hex(0x0E0E13);
-    public float4 BorderColor { get; set; } = Colors.Hex(0x3A3A48);
-    public float4 FocusColor { get; set; } = Colors.Hex(0x7AB8FF);
-    public float4 TextColor { get; set; } = Colors.White;
-    public float4 PlaceholderColor { get; set; } = Colors.Hex(0x6A6A78);
-    public float4 SelectionColor { get; set; } = Colors.Hex(0x3D6FB8, 0.7f);
+    public float4 Background { get; set; } = Theme.Field;
+    public float4 BorderColor { get; set; } = Theme.ControlHover;
+    public float4 FocusColor { get; set; } = Theme.Focus;
+    public float4 TextColor { get; set; } = Theme.Text;
+    public float4 PlaceholderColor { get; set; } = Theme.Placeholder;
+    public float4 SelectionColor { get; set; } = Theme.Fade(Theme.Selection, 0.7f);
 
     /// <summary>
     /// Glide sideways to follow the caret rather than jumping. On by default.

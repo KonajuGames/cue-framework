@@ -60,7 +60,7 @@ public sealed class TabView : Region
             {
                 Padding = 7,
                 Background = Theme.PanelRaised,
-                HoverBackground = Colors.Hex(0x31323C),
+                HoverBackground = Theme.ControlHover,
                 LitBackground = Theme.Panel,
                 TextColor = Theme.Text,
             }

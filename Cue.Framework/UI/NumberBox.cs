@@ -132,14 +132,14 @@ public sealed class NumberBox : Row
         public override void Draw(Batch batch)
         {
             var background =
-                IsPressed && IsHovered ? Colors.Hex(0x1E1E26)
-                : IsHovered || IsPressed ? Colors.Hex(0x3A3A48)
-                : Colors.Hex(0x2A2A35);
+                IsPressed && IsHovered ? Theme.ControlPressed
+                : IsHovered || IsPressed ? Theme.ControlHover
+                : Theme.Control;
             batch.AddRect(ScreenPosition, Size, background);
 
             // A line between the two, so they read as two buttons.
             if (!up)
-                batch.AddRect(ScreenPosition, new float2(Size.X, 1), Colors.Hex(0x1E1E26));
+                batch.AddRect(ScreenPosition, new float2(Size.X, 1), Theme.ControlPressed);
 
             var color = IsHovered ? Theme.Text : Theme.Muted;
             var left = MathF.Round(ScreenPosition.X + Size.X / 2 - ARROW + 0.5f);
