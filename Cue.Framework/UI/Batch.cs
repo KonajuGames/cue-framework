@@ -73,7 +73,8 @@ public sealed class Batch
 
     /// <summary>
     /// Where the texture drawn from changes: from vertex Start on, texture Texture (0 is the font atlas, others are
-    /// what the renderer's given those numbers, such as the 3D view's image).
+    /// what the renderer's given those numbers, such as the 3D view's image, or images it's made from pixels, such as a
+    /// song's cover).
     /// </summary>
     readonly List<(int Start, int Texture)> _textures = [];
 

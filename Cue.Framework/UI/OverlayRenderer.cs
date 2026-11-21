@@ -39,6 +39,7 @@ public sealed unsafe class OverlayRenderer : IDisposable
     readonly VkPipeline _pipeline;
 
     readonly FrameVertices[] _frames;
+    readonly int _framesInFlight;
 
     /// <summary>
     /// Builds <paramref name="atlas"/> if it isn't already; add every font before this.
@@ -88,17 +89,31 @@ public sealed unsafe class OverlayRenderer : IDisposable
         );
         _pipeline = CreatePipeline(colorFormat);
 
+        _framesInFlight = framesInFlight;
         _frames = new FrameVertices[framesInFlight];
         for (var i = 0; i < framesInFlight; i++)
             _frames[i] = new FrameVertices();
     }
 
-    const int MAX_TEXTURES = 4;
+    /// <summary>
+    /// How many textures can be drawn from at once, the atlas among them: those given with <see cref="SetTexture"/>
+    /// and the images made with <see cref="AddImage"/>.
+    /// </summary>
+    public const int MAX_TEXTURES = 64;
 
     readonly Dictionary<int, VkDescriptorSet> _textures = [];
 
+    // Sets allocated so far, and those given back by images removed, once the GPU's finished with them.
+    int _setsAllocated;
+    readonly Stack<VkDescriptorSet> _spareSets = [];
+
     VkDescriptorSet AllocateSet()
     {
+        if (_spareSets.TryPop(out var spare))
+            return spare;
+        if (_setsAllocated == MAX_TEXTURES)
+            throw new InvalidOperationException($"The UI can only draw from {MAX_TEXTURES} textures at once; remove images no longer shown");
+        _setsAllocated++;
         var setLayout = _descriptorSetLayout;
         Span<VkDescriptorSet> sets = stackalloc VkDescriptorSet[1];
         _device.AllocateDescriptorSets(
@@ -143,9 +158,152 @@ public sealed unsafe class OverlayRenderer : IDisposable
     /// </summary>
     public void SetTexture(int id, VkImageView view)
     {
+        if (id is < 1 or >= FIRST_IMAGE)
+            throw new ArgumentOutOfRangeException(nameof(id), id, $"Textures given are numbered from 1 to {FIRST_IMAGE - 1}");
         if (!_textures.TryGetValue(id, out var set))
             _textures[id] = set = AllocateSet();
         WriteSet(set, view);
+    }
+
+    /// <summary>
+    /// The number the first image made with <see cref="AddImage"/> gets; those given with <see cref="SetTexture"/> are
+    /// below it.
+    /// </summary>
+    public const int FIRST_IMAGE = 1 << 16;
+
+    /// <summary>
+    /// An image made while running (<see cref="AddImage"/>), and its pixels until they're copied to it.
+    /// </summary>
+    sealed class AddedImage(GpuImage image, VkDescriptorSet set, GpuBuffer staging)
+    {
+        public readonly GpuImage Image = image;
+        public readonly VkDescriptorSet Set = set;
+        public GpuBuffer? Staging = staging;
+    }
+
+    int _nextImage = FIRST_IMAGE;
+    readonly Dictionary<int, AddedImage> _images = [];
+
+    /// <summary>
+    /// Images waiting to be copied to the GPU at the start of the next frame (see <see cref="BeginFrame"/>).
+    /// </summary>
+    readonly List<AddedImage> _uploads = [];
+
+    /// <summary>
+    /// What's to be freed once the GPU can no longer be using it: when frame FreeAt begins (see
+    /// <see cref="BeginFrame"/>).
+    /// </summary>
+    readonly List<(long FreeAt, Action Free)> _retired = [];
+
+    /// <summary>
+    /// How many frames have begun; each frame's number is the count before it.
+    /// </summary>
+    long _frame;
+
+    /// <summary>
+    /// How many images made with <see cref="AddImage"/> are held on the GPU, those removed but not yet freed among
+    /// them; for checking that an app gives back what it's finished with.
+    /// </summary>
+    public int ImagesHeld => _images.Count + _retiredImages;
+
+    int _retiredImages;
+
+    /// <summary>
+    /// Makes an image from <paramref name="rgba"/>, rows of sRGB pixels from the top with alpha (not premultiplied),
+    /// to draw with <see cref="Batch.AddTexture"/> by the number returned: a picture that isn't known until the app's
+    /// running, such as a song's cover. It's copied to the GPU at the start of the next frame, without waiting. Remove
+    /// it with <see cref="RemoveImage"/> once it's no longer shown; until then it holds GPU memory, and one of the
+    /// <see cref="MAX_TEXTURES"/> textures there can be.
+    /// </summary>
+    public int AddImage(int width, int height, ReadOnlySpan<byte> rgba)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+        if (rgba.Length != width * height * 4)
+            throw new ArgumentException($"A {width}x{height} image is {width * height * 4} bytes of RGBA, not {rgba.Length}", nameof(rgba));
+
+        var set = AllocateSet();
+        var image = new GpuImage(
+            _gpu,
+            VkFormat.R8G8B8A8SRGB,
+            new VkExtent2D(width, height),
+            1,
+            VkImageUsageFlags.SampledBit | VkImageUsageFlags.TransferDstBit,
+            VkImageAspectFlags.ColorBit
+        );
+        // No frame uses the set yet, so it can be written now; nothing's drawn from it before the copy.
+        WriteSet(set, image.View);
+        var added = new AddedImage(image, set, _gpu.CreateStagingBuffer(rgba));
+
+        var id = _nextImage++;
+        _images[id] = added;
+        _textures[id] = set;
+        _uploads.Add(added);
+        return id;
+    }
+
+    /// <summary>
+    /// Stops drawing image <paramref name="id"/> (from <see cref="AddImage"/>) and frees it once the frames still on
+    /// the GPU are done with it. Does nothing if there's no such image, such as one already removed.
+    /// </summary>
+    public void RemoveImage(int id)
+    {
+        if (!_images.Remove(id, out var removed))
+            return;
+        _textures.Remove(id);
+
+        // Never copied, so never drawn: free it now.
+        if (_uploads.Remove(removed))
+        {
+            Free();
+            return;
+        }
+
+        // The last frame begun may have drawn it.
+        _retiredImages++;
+        _retired.Add((_frame - 1 + _framesInFlight, () =>
+        {
+            _retiredImages--;
+            Free();
+        }));
+
+        void Free()
+        {
+            removed.Staging?.Dispose();
+            removed.Image.Dispose();
+            _spareSets.Push(removed.Set);
+        }
+    }
+
+    /// <summary>
+    /// Starts a frame: frees what the GPU's finished with and records the copies of images added since the last frame
+    /// into <paramref name="cmd"/>. Call once a frame, outside any rendering pass and before <see cref="Record"/>,
+    /// once the GPU's finished the last frame that used this frame's slot (as <see cref="Renderer"/> does).
+    /// </summary>
+    public void BeginFrame(CommandBuffer cmd)
+    {
+        var frame = _frame++;
+
+        // This frame's slot was last used framesInFlight frames ago, so that frame's finished, and every frame before
+        // it (a queue's work finishes in the order it was sent).
+        for (var i = _retired.Count - 1; i >= 0; i--)
+        {
+            if (_retired[i].FreeAt > frame)
+                continue;
+            var free = _retired[i].Free;
+            _retired.RemoveAt(i);
+            free();
+        }
+
+        foreach (var upload in _uploads)
+        {
+            var staging = upload.Staging!;
+            RecordUpload(cmd, upload.Image.Image, upload.Image.Extent, staging);
+            // The pixels are read while this frame runs, so they go once it's done.
+            upload.Staging = null;
+            _retired.Add((frame + _framesInFlight, staging.Dispose));
+        }
+        _uploads.Clear();
     }
 
     static GpuImage UploadAtlas(GpuContext gpu, FontAtlas atlas)
@@ -161,10 +319,19 @@ public sealed unsafe class OverlayRenderer : IDisposable
         );
 
         using var staging = gpu.CreateStagingBuffer<byte>(atlas.Pixels);
-        gpu.SubmitAndWait(cmd =>
+        gpu.SubmitAndWait(cmd => RecordUpload(cmd, image.Image, image.Extent, staging));
+        return image;
+    }
+
+    /// <summary>
+    /// Copies <paramref name="staging"/>'s pixels into all of <paramref name="image"/>, leaving it ready for the
+    /// fragment shader to read.
+    /// </summary>
+    static void RecordUpload(CommandBuffer cmd, VkImage image, VkExtent2D extent, GpuBuffer staging)
+    {
         {
             cmd.TransitionImage(
-                image.Image,
+                image,
                 VkImageAspectFlags.ColorBit,
                 VkImageLayout.Undefined,
                 VkImageLayout.TransferDstOptimal,
@@ -175,7 +342,7 @@ public sealed unsafe class OverlayRenderer : IDisposable
             );
             cmd.CopyBufferToImage(
                 staging.Buffer,
-                image.Image,
+                image,
                 VkImageLayout.TransferDstOptimal,
                 [
                     new VkBufferImageCopy
@@ -183,15 +350,15 @@ public sealed unsafe class OverlayRenderer : IDisposable
                         ImageSubresource = Subresources.Single(VkImageAspectFlags.ColorBit).ToLayers(),
                         ImageExtent = new VkExtent3D
                         {
-                            Width = atlas.Width,
-                            Height = atlas.Height,
+                            Width = extent.Width,
+                            Height = extent.Height,
                             Depth = 1,
                         },
                     },
                 ]
             );
             cmd.TransitionImage(
-                image.Image,
+                image,
                 VkImageAspectFlags.ColorBit,
                 VkImageLayout.TransferDstOptimal,
                 VkImageLayout.ShaderReadOnlyOptimal,
@@ -200,9 +367,7 @@ public sealed unsafe class OverlayRenderer : IDisposable
                 VkPipelineStageFlags.FragmentShaderBit,
                 VkAccessFlags.ShaderReadBit
             );
-        });
-
-        return image;
+        }
     }
 
     VkPipeline CreatePipeline(VkFormat colorFormat)
@@ -320,8 +485,18 @@ public sealed unsafe class OverlayRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Frees everything, the images added among it; the GPU must have finished with it all (after a wait for idle).
+    /// </summary>
     public void Dispose()
     {
+        foreach (var (_, free) in _retired)
+            free();
+        foreach (var image in _images.Values)
+        {
+            image.Staging?.Dispose();
+            image.Image.Dispose();
+        }
         foreach (var frame in _frames)
             frame.Buffer?.Dispose();
 

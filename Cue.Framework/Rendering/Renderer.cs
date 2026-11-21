@@ -69,6 +69,23 @@ public sealed unsafe class Renderer : IDisposable
         return shot;
     }
 
+    /// <summary>
+    /// Makes an image for this window's UI from sRGB RGBA pixels, to draw with <see cref="Batch.AddTexture"/> by the
+    /// number returned; see <see cref="OverlayRenderer.AddImage"/>. Remove it with <see cref="RemoveImage"/> once
+    /// it's no longer shown.
+    /// </summary>
+    public int AddImage(int width, int height, ReadOnlySpan<byte> rgba) => _ui.AddImage(width, height, rgba);
+
+    /// <summary>
+    /// Stops drawing an image made with <see cref="AddImage"/> and frees it once the GPU's done with it.
+    /// </summary>
+    public void RemoveImage(int id) => _ui.RemoveImage(id);
+
+    /// <summary>
+    /// How many images made with <see cref="AddImage"/> are still held on the GPU.
+    /// </summary>
+    public int ImagesHeld => _ui.ImagesHeld;
+
     /// <param name="surface">Another window's surface, made for it (<see cref="GpuContext.CreateSurface"/>), which
     /// the renderer then owns; null for the main window's.</param>
     public Renderer(GpuContext gpu, GlfwWindow window, FontAtlas fonts, VkSurfaceKHR? surface = null)
@@ -226,6 +243,9 @@ public sealed unsafe class Renderer : IDisposable
     {
         var image = _swapchain.Images[imageIndex];
         var extent = _swapchain.Extent;
+
+        // Images the UI's been given since the last frame, copied in; and those it's done with freed.
+        _ui.BeginFrame(cmd);
 
         // The app's own picture first, for the UI to show.
         PrePass?.Record(cmd, _frameIndex, _ui);

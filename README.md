@@ -11,7 +11,7 @@ Vulkan and FreeType bindings, Windows-only like the apps.
 | Namespace | What |
 | --- | --- |
 | `Cue.Framework.Window` | `GlfwUiInput` (GLFW's mouse, keys and cursors to the UI's `Root`), `WindowChrome` (the borderless window's Win32 caption and resizing), `WindowsShell` (console, crash box, file dialogs, Recycle Bin, keep-awake) |
-| `Cue.Framework.Rendering` | the Vulkan context, swapchain, `Renderer` (clears a window and draws the UI over it, two frames in flight), GPU buffers and images, barriers, the GLSL loader, and `IPrePass` for an app's own drawing before the UI |
+| `Cue.Framework.Rendering` | the Vulkan context, swapchain, `Renderer` (clears a window and draws the UI over it, two frames in flight, and takes pictures made while the app runs, such as a song's cover, with `AddImage`, given back with `RemoveImage` and freed once the GPU's done with them), GPU buffers and images, barriers, the GLSL loader, and `IPrePass` for an app's own drawing before the UI |
 | `Cue.Framework.UI` | the retained-mode UI: `Element`, `Panel`, `Label`, `Button`, `Root` (input routing, focus, tooltips, drag and drop), `Batch` and `OverlayRenderer` (drawing), `FontAtlas` and `FreeType`, `Png`, the shared `Theme`, keys and modifiers, and the controls: `TextBox`, `Slider`, `Knob`, `Checkbox`, `Dropdown`, `ListView`, `TreeView`, `ScrollPanel`, `ContextMenu`, `MenuBar` (see below), `ConfirmDialog`, `NamePrompt`, `LevelMeter`, `TitleBar` (see below), `IconButton`, `Spacer`, `Picture`, `TabView`, `NumberBox` and `ColourPicker` (with `Srgb`, the colour it picks); and layout: `Row`, `Ends`, `Flow`, `FieldGrid`, `Divider`, `FixedWidth`, and `Region`, `ScrollingPage` and `Placeholder` for screens that fill the room they're given |
 | `Cue.Framework` | `ErrorLog` |
 
