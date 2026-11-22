@@ -154,21 +154,23 @@ public sealed class Batch
         // Whole pixels, so glyphs land on texel boundaries and stay sharp.
         var origin = new float2(MathF.Round(position.X), MathF.Round(position.Y));
         var penX = origin.X;
-        var baseline = origin.Y + font.Ascender;
+        // The baseline goes on a whole screen pixel once for the line and each glyph sits a whole number of pixels
+        // from it, so a fractional scale can't round one glyph up and its neighbour down.
+        var baseline = Snap(origin.Y + font.Ascender);
 
         foreach (var rune in text.EnumerateRunes())
         {
             if (rune.Value == '\n')
             {
                 penX = origin.X;
-                baseline += font.LineHeight;
+                baseline = Snap(baseline + font.LineHeight);
                 continue;
             }
 
             var glyph = font.GetGlyph(rune.Value);
             if (glyph.Size.X > 0 && glyph.Size.Y > 0)
             {
-                var min = new float2(MathF.Round(penX) + glyph.Bearing.X, baseline - glyph.Bearing.Y);
+                var min = new float2(Snap(penX) + Snap(glyph.Bearing.X), baseline - Snap(glyph.Bearing.Y));
                 AddQuad(min, min + new float2(glyph.Size.X, glyph.Size.Y), glyph.UvMin, glyph.UvMax, color);
             }
             penX += glyph.Advance;
@@ -211,7 +213,7 @@ public sealed class Batch
             if (glyph.Size.X > 0 && glyph.Size.Y > 0)
             {
                 // In the text's own frame: u along the line, v down from its top.
-                float u0 = MathF.Round(pen) + glyph.Bearing.X, v0 = top + font.Ascender - glyph.Bearing.Y;
+                float u0 = Snap(pen) + Snap(glyph.Bearing.X), v0 = Snap(top + font.Ascender) - Snap(glyph.Bearing.Y);
                 float u1 = u0 + glyph.Size.X, v1 = v0 + glyph.Size.Y;
                 // Turned: u runs up the screen, v to the right.
                 Span<Vertex> quad =
@@ -466,6 +468,12 @@ public sealed class Batch
             _vertices.Add(Scaled(points[i + 1]));
         }
     }
+
+    /// <summary>
+    /// <paramref name="value"/>, in the UI's units, moved to the nearest whole screen pixel: the nearest whole unit
+    /// at a <see cref="Scale"/> of 1.
+    /// </summary>
+    float Snap(float value) => Scale == 1 ? MathF.Round(value) : MathF.Round(value * Scale) / Scale;
 
     Vertex Scaled(Vertex vertex) => Scale == 1 ? vertex : new Vertex(vertex.Position * Scale, vertex.Uv, vertex.Color);
 
