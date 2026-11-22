@@ -4,9 +4,9 @@ using Brutal.Numerics;
 namespace Cue.Framework.UI;
 
 /// <summary>
-/// One glyph's metrics, in pixels, and where it sits in the atlas.
+/// One glyph's metrics, in the UI's units (pixels at a <see cref="Root.Scale"/> of 1), and where it sits in the atlas.
 /// </summary>
-public readonly record struct Glyph(int2 Size, int2 Bearing, float Advance, float2 UvMin, float2 UvMax);
+public readonly record struct Glyph(float2 Size, float2 Bearing, float Advance, float2 UvMin, float2 UvMax);
 
 /// <summary>
 /// A picture in the atlas: an icon or logo, drawn with <see cref="Batch.AddImage"/>. Get one from
@@ -50,11 +50,17 @@ public sealed class Font
     internal readonly Dictionary<int, Glyph> Glyphs = [];
     internal Glyph Fallback;
 
-    internal Font(float pixelSize, float ascender, float lineHeight)
+    /// <summary>
+    /// How many screen pixels it was rasterised at for each of the UI's: its atlas's <see cref="FontAtlas.Scale"/>.
+    /// </summary>
+    internal float Scale { get; }
+
+    internal Font(float pixelSize, float ascender, float lineHeight, float scale = 1)
     {
         PixelSize = pixelSize;
         Ascender = ascender;
         LineHeight = lineHeight;
+        Scale = scale;
     }
 
     public Glyph GetGlyph(int codePoint) => Glyphs.GetValueOrDefault(codePoint, Fallback);
@@ -139,6 +145,13 @@ public sealed unsafe class FontAtlas
     public int Height { get; private set; }
 
     /// <summary>
+    /// How many screen pixels make one of the UI's, for a screen scaled up (see <see cref="Root.Scale"/>): fonts
+    /// added after it's set are rasterised that much bigger, so text stays sharp, while their metrics stay in the
+    /// UI's units. Images are drawn scaled up as they are. Set it before adding any font.
+    /// </summary>
+    public float Scale { get; set; } = 1;
+
+    /// <summary>
     /// The built texture, <see cref="BYTES_PER_TEXEL"/> bytes (red, green, blue, alpha) a texel, rows from the top.
     /// </summary>
     public byte[]? Pixels { get; private set; }
@@ -185,14 +198,15 @@ public sealed unsafe class FontAtlas
                 );
                 try
                 {
-                    var size = (uint)MathF.Round(pixelSize);
+                    var size = (uint)MathF.Round(pixelSize * Scale);
                     FreeType.Check(FreeType.SetPixelSizes(face, 0, size), "FT_Set_Pixel_Sizes");
 
                     var metrics = face->Size->Metrics;
                     var font = new Font(
-                        size,
-                        MathF.Round(metrics.Ascender.Value / 64f),
-                        MathF.Round(metrics.Height.Value / 64f)
+                        MathF.Round(pixelSize),
+                        MathF.Round(metrics.Ascender.Value / 64f) / Scale,
+                        MathF.Round(metrics.Height.Value / 64f) / Scale,
+                        Scale
                     );
 
                     foreach (var codePoint in characters ?? DefaultCharacters)
@@ -318,7 +332,15 @@ public sealed unsafe class FontAtlas
                         target[column * BYTES_PER_TEXEL + 3] = coverage[column];
                     }
                 }
-                glyph.Font.Glyphs[glyph.CodePoint] = new Glyph(glyph.Size, glyph.Bearing, glyph.Advance, uvMin, uvMax);
+                // Rasterised at its font's scale, measured in the UI's units.
+                var scale = glyph.Font.Scale;
+                glyph.Font.Glyphs[glyph.CodePoint] = new Glyph(
+                    new float2(glyph.Size.X, glyph.Size.Y) / scale,
+                    new float2(glyph.Bearing.X, glyph.Bearing.Y) / scale,
+                    glyph.Advance / scale,
+                    uvMin,
+                    uvMax
+                );
             }
             else
             {

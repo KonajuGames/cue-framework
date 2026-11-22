@@ -88,7 +88,8 @@ public sealed class GlfwUiInput : IDisposable
             windowSize.X > 0 && windowSize.Y > 0
                 ? new float2((float)framebufferSize.X / windowSize.X, (float)framebufferSize.Y / windowSize.Y)
                 : new float2(1, 1);
-        return new float2((float)windowPosition.X, (float)windowPosition.Y) * scale;
+        // Into the UI's units, from the screen's pixels.
+        return new float2((float)windowPosition.X, (float)windowPosition.Y) * scale / _ui.Scale;
     }
 
     void OnCursorPos(GlfwWindow window, double2 position) =>

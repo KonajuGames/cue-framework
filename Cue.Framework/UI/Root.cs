@@ -217,6 +217,13 @@ public sealed class Root
     /// Measures and places every element for a screen of <paramref name="screenSize"/> pixels. Call once a frame,
     /// before drawing, after anything that changes text or visibility.
     /// </summary>
+    /// <summary>
+    /// How many screen pixels make one of the UI's: 1 as it's designed, 1.5 for everything half as big again on a 4K
+    /// screen, say. Layout, drawing and the mouse are all in the UI's units, so the screen's size in them is its size
+    /// in pixels over this. Fonts need rasterising at the scale for sharp text (see <see cref="FontAtlas.Scale"/>).
+    /// </summary>
+    public float Scale { get; set; } = 1;
+
     public void Layout(float2 screenSize)
     {
         _screenSize = screenSize;

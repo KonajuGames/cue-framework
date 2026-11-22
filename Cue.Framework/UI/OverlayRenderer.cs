@@ -415,6 +415,7 @@ public sealed unsafe class OverlayRenderer : IDisposable
         var screen = new float2(extent.Width, extent.Height);
 
         _batch.Clear();
+        _batch.Scale = ui.Scale;
         ui.Draw(_batch);
 
         var vertices = _batch.Vertices;

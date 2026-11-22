@@ -58,6 +58,13 @@ public sealed class Batch
     public Batch(FontAtlas atlas) => _atlas = atlas;
 
     /// <summary>
+    /// How many screen pixels make one of the UI's (see <see cref="Root.Scale"/>): everything's added in the UI's
+    /// units and put on the screen this much bigger, each rectangle's edges on whole pixels so lines and text stay
+    /// sharp. Clipping is in the UI's units too.
+    /// </summary>
+    public float Scale { get; set; } = 1;
+
+    /// <summary>
     /// Clip rectangles as (min, max) corners; the top one applies to everything added.
     /// </summary>
     readonly Stack<(float2 Min, float2 Max)> _clips = [];
@@ -454,11 +461,13 @@ public sealed class Batch
     {
         for (var i = 1; i + 1 < points.Length; i++)
         {
-            _vertices.Add(points[0]);
-            _vertices.Add(points[i]);
-            _vertices.Add(points[i + 1]);
+            _vertices.Add(Scaled(points[0]));
+            _vertices.Add(Scaled(points[i]));
+            _vertices.Add(Scaled(points[i + 1]));
         }
     }
+
+    Vertex Scaled(Vertex vertex) => Scale == 1 ? vertex : new Vertex(vertex.Position * Scale, vertex.Uv, vertex.Color);
 
     /// <summary>
     /// How far inside edge <paramref name="edge"/> (left, right, top, bottom) of the clip rectangle a point is:
@@ -487,6 +496,15 @@ public sealed class Batch
             var uvSize = uvMax - uvMin;
             (uvMin, uvMax) = (uvMin + (clippedMin - min) / size * uvSize, uvMin + (clippedMax - min) / size * uvSize);
             (min, max) = (clippedMin, clippedMax);
+        }
+
+        // Scaled to the screen with its corner on a whole pixel and its size a whole number of them, so a glyph
+        // rasterised at the scale lands texel for texel, and a thin line stays one solid width.
+        if (Scale != 1)
+        {
+            var size = max - min;
+            min = new float2(MathF.Round(min.X * Scale), MathF.Round(min.Y * Scale));
+            max = min + new float2(MathF.Max(MathF.Round(size.X * Scale), size.X > 0 ? 1 : 0), MathF.Max(MathF.Round(size.Y * Scale), size.Y > 0 ? 1 : 0));
         }
 
         var topRight = new Vertex(new float2(max.X, min.Y), new float2(uvMax.X, uvMin.Y), color);
