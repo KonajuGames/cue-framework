@@ -133,10 +133,10 @@ public sealed class Dropdown<T> : Element, IOpensMenu
         var hovered = Enabled && (IsHovered || IsPressed);
         batch.AddRect(ScreenPosition, Size, Faded(hovered ? HoverBackground : Background));
 
-        // The choice, cut off short of the arrow.
+        // The choice, cut short of the arrow with an ellipsis.
         var textWidth = Size.X - 2 * Padding - 4 * ARROW;
         batch.PushClip(ScreenPosition, new float2(Padding + textWidth, Size.Y));
-        batch.AddText(_font, Text(Selected), ScreenPosition + new float2(Padding, Padding), Faded(TextColor));
+        batch.AddText(_font, _font.Fit(Text(Selected), textWidth), ScreenPosition + new float2(Padding, Padding), Faded(TextColor));
         batch.PopClip();
 
         // An arrow pointing down at the right.

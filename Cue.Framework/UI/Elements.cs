@@ -268,20 +268,42 @@ public sealed class Label(Font font, string text = "") : Element
     public float4 Color { get; set; } = Theme.Text;
 
     /// <summary>
-    /// The widest it takes up; longer text is cut off there, or with <see cref="Wrap"/>, carried onto more lines.
+    /// The widest it takes up; longer text is cut short there and ends in an ellipsis, or with <see cref="Wrap"/>, is
+    /// carried onto more lines.
     /// </summary>
     public float MaxWidth { get; set; } = float.PositiveInfinity;
 
     /// <summary>
-    /// Whether text wider than <see cref="MaxWidth"/> wraps onto more lines, between words, rather than being cut off.
+    /// Whether text wider than <see cref="MaxWidth"/> wraps onto more lines, between words, rather than being cut short.
     /// </summary>
     public bool Wrap { get; set; }
 
+    /// <summary>
+    /// The text as drawn: wrapped, or cut short with an ellipsis, to fit <see cref="MaxWidth"/>.
+    /// </summary>
+    public string Shown => _wrapped;
+
+    /// <summary>
+    /// Whether the text was cut short to fit, so ends in an ellipsis.
+    /// </summary>
+    public bool Truncated { get; private set; }
+
     public override float2 Measure()
     {
-        _wrapped = Wrap && float.IsFinite(MaxWidth) ? Wrapped(Text) : Text;
+        Truncated = false;
+        _wrapped =
+            !float.IsFinite(MaxWidth) ? Text
+            : Wrap ? Wrapped(Text)
+            : string.Join('\n', Text.Split('\n').Select(Shortened));
         var size = Font.Measure(_wrapped);
         return Size = new float2(MathF.Min(size.X, MaxWidth), size.Y);
+    }
+
+    string Shortened(string line)
+    {
+        var fitted = Font.Fit(line, MaxWidth);
+        Truncated |= !ReferenceEquals(fitted, line);
+        return fitted;
     }
 
     /// <summary>

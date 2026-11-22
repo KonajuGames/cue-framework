@@ -431,6 +431,7 @@ public sealed class ListView<T> : Element
                 }
                 if (text.Length > 0)
                 {
+                    text = Font.Fit(text, cellWidth); // cut short with an ellipsis where it won't fit
                     var textX = column.AlignRight ? cellLeft + cellWidth - Font.Advance(text) : cellLeft;
                     batch.AddText(Font, text, new float2(textX, rowPosition.Y + 3), column.Color?.Invoke(_items[row]) ?? TextColor);
                 }
@@ -717,11 +718,12 @@ public sealed class ListHeader<T> : Element
         {
             var cellLeft = x + _list.CellPadding;
             var cellWidth = MathF.Max(0, column.Width - 2 * _list.CellPadding);
-            var titleWidth = _list.Font.Advance(column.Title);
+            var title = _list.Font.Fit(column.Title, cellWidth);
+            var titleWidth = _list.Font.Advance(title);
             var textX = column.AlignRight ? cellLeft + cellWidth - titleWidth : cellLeft;
 
             batch.PushClip(new float2(cellLeft, ScreenPosition.Y), new float2(cellWidth, Size.Y));
-            batch.AddText(_list.Font, column.Title, new float2(textX, ScreenPosition.Y + 3), Color);
+            batch.AddText(_list.Font, title, new float2(textX, ScreenPosition.Y + 3), Color);
 
             // The arrow by the heading the list is sorted by: up for A to Z, down for Z to A. Before a right-aligned
             // heading, after any other.

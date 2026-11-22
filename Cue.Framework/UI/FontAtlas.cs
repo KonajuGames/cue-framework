@@ -77,6 +77,34 @@ public sealed class Font
     }
 
     /// <summary>
+    /// What's put at the end of text cut short to fit.
+    /// </summary>
+    public const string ELLIPSIS = "…";
+
+    /// <summary>
+    /// <paramref name="line"/> as it fits in <paramref name="width"/>: whole if it does, else as much of it as fits
+    /// with an <see cref="ELLIPSIS"/> after it, so it's plain it's been cut short; nothing if not even that fits.
+    /// </summary>
+    public string Fit(string line, float width)
+    {
+        if (Measure(line).X <= width)
+            return line;
+        // The most characters that fit with the ellipsis, found by halving.
+        int lo = 0, hi = line.Length;
+        while (lo < hi)
+        {
+            var mid = (lo + hi + 1) / 2;
+            if (Measure(line[..mid].TrimEnd() + ELLIPSIS).X <= width)
+                lo = mid;
+            else
+                hi = mid - 1;
+        }
+        if (lo > 0 && char.IsHighSurrogate(line[lo - 1]))
+            lo--; // never half a character
+        return lo == 0 && Measure(ELLIPSIS).X > width ? "" : line[..lo].TrimEnd() + ELLIPSIS;
+    }
+
+    /// <summary>
     /// The size of the box <paramref name="text"/> fills when drawn, with '\n' starting a new line.
     /// </summary>
     public float2 Measure(ReadOnlySpan<char> text)
