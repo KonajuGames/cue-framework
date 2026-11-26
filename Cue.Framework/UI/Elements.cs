@@ -610,7 +610,11 @@ public sealed class Button : Panel
 
     public Font? HintFont { get; set; }
 
-    public float4 HintColor { get; set; } = Theme.Tint(0.3f);
+    /// <summary>
+    /// The colour of the <see cref="KeyHint"/>; if null, the text's colour a little muted, so it shows as well as the
+    /// text does on a coloured button.
+    /// </summary>
+    public float4? HintColor { get; set; }
 
     public override bool IsInteractive => Enabled;
 
@@ -654,7 +658,8 @@ public sealed class Button : Panel
             var border = BorderWidth > 0 && BorderColor.W > 0 ? BorderWidth + 2 : 0;
             var hintSize = hintFont.Measure(hint);
             var hintAt = new float2(MathF.Round(ScreenPosition.X + Size.X - hintSize.X - 2 - border), ScreenPosition.Y);
-            batch.AddText(hintFont, hint, hintAt, Enabled ? HintColor : HintColor * new float4(1, 1, 1, 0.4f));
+            var hintColor = HintColor ?? Theme.Fade(color, 0.6f);
+            batch.AddText(hintFont, hint, hintAt, Enabled ? hintColor : hintColor * new float4(1, 1, 1, 0.4f));
         }
 
         if (ShowFocus)
