@@ -6,7 +6,9 @@ namespace Cue.Framework.UI;
 /// One choice on a <see cref="ContextMenu"/>. One with a <see cref="Submenu"/> opens it beside the menu, when the
 /// mouse comes over it or it's clicked, rather than being chosen itself. <see cref="Checked"/> marks the one that's
 /// in effect now. <see cref="Shortcut"/> is the key that does the same, written muted at the right ("Ctrl+S"); the
-/// menu only shows it, so the app handles the key itself.
+/// menu only shows it, so the app handles the key itself. One with a <see cref="Swatch"/> is shown as a square of
+/// that colour rather than its text, which names it for the keys and tests; swatches next to each other in the list
+/// make a grid, as near square as they'll go (nine are three by three).
 /// </summary>
 public sealed record MenuItem(
     string Text,
@@ -14,7 +16,8 @@ public sealed record MenuItem(
     bool Enabled = true,
     IReadOnlyList<MenuItem>? Submenu = null,
     bool Checked = false,
-    string? Shortcut = null
+    string? Shortcut = null,
+    float4? Swatch = null
 )
 {
     public MenuItem(string text, IReadOnlyList<MenuItem> submenu, bool enabled = true)
@@ -44,6 +47,8 @@ public sealed class ContextMenu : Panel
     const float EDGE = 4;
     const float ARROW = 4;
     const float SHORTCUT_GAP = 24;
+    const float SWATCH = 30;
+    const float SWATCH_GAP = 6;
 
     readonly Font _font;
     readonly Panel _box;
@@ -85,7 +90,7 @@ public sealed class ContextMenu : Panel
     /// <summary>
     /// The highlighted item's text, or null if none is.
     /// </summary>
-    public string? HighlightedText => _highlighted?.Text;
+    public string? HighlightedText => _highlighted is { } button ? TextOf(button) : null;
 
     public ContextMenu(Font font)
     {
@@ -131,7 +136,7 @@ public sealed class ContextMenu : Panel
         if (over is not null && over != _highlighted)
         {
             Highlight(over);
-            if (_box.Children.Contains(over) && over != _openItem)
+            if (Buttons(_box).Contains(over) && over != _openItem)
             {
                 if (_items[over].Submenu is not null)
                     OpenSubmenu(over);
@@ -142,16 +147,42 @@ public sealed class ContextMenu : Panel
         PointerMoved?.Invoke(point);
     }
 
-    static IEnumerable<Button> ButtonsIn(Panel box) => box.Visible ? box.Children.OfType<Button>() : [];
+    static IEnumerable<Button> ButtonsIn(Panel box) => box.Visible ? Buttons(box) : [];
+
+    // Every item's button in a box, in order, including the swatches in its grids.
+    static IEnumerable<Button> Buttons(Panel panel) =>
+        panel.Children.SelectMany(child => child switch
+        {
+            Button button => [button],
+            Panel inner => Buttons(inner),
+            _ => Enumerable.Empty<Button>(),
+        });
+
+    bool IsSwatch(Button button) => _items.TryGetValue(button, out var item) && item.Swatch is not null;
+
+    string TextOf(Button button) => _items.TryGetValue(button, out var item) ? item.Text : button.Text;
 
     void Highlight(Button? button)
     {
-        if (_highlighted is not null)
-            _highlighted.Background = _highlighted.HoverBackground = Colors.Transparent;
+        if (_highlighted is { } old)
+        {
+            // A swatch keeps its colour and is ringed instead.
+            if (IsSwatch(old))
+                (old.BorderColor, old.BorderWidth) = (SwatchEdge, 1);
+            else
+                old.Background = old.HoverBackground = Colors.Transparent;
+        }
         _highlighted = button;
         if (button is not null)
-            button.Background = button.HoverBackground = HIGHLIGHT;
+        {
+            if (IsSwatch(button))
+                (button.BorderColor, button.BorderWidth) = (Theme.Text, 2);
+            else
+                button.Background = button.HoverBackground = HIGHLIGHT;
+        }
     }
+
+    static float4 SwatchEdge => Theme.Fade(Theme.Text, 0.25f);
 
     /// <summary>
     /// Highlights the first item that can be chosen, as when a menu's opened from the keyboard.
@@ -163,7 +194,7 @@ public sealed class ContextMenu : Panel
     /// </summary>
     public void HighlightItem(string text)
     {
-        if (ButtonsIn(_box).FirstOrDefault(button => button.Enabled && button.Text == text) is { } button)
+        if (ButtonsIn(_box).FirstOrDefault(button => button.Enabled && TextOf(button) == text) is { } button)
             Highlight(button);
     }
 
@@ -174,9 +205,11 @@ public sealed class ContextMenu : Panel
         // Shortcuts held with Ctrl or Alt go on to the app (Alt+a letter to a menu bar).
         if ((modifiers & (Modifiers.Control | Modifiers.Alt | Modifiers.Super)) != 0)
             return key == Key.Escape && Escape();
-        var inSub = _highlighted is not null && _subBox.Children.Contains(_highlighted);
+        var inSub = _highlighted is not null && Buttons(_subBox).Contains(_highlighted);
         var box = inSub ? _subBox : _box;
         var choices = ButtonsIn(box).Where(button => button.Enabled).ToList();
+        if (StepInGrid(key, choices))
+            return true;
         switch (key)
         {
             case Key.Escape:
@@ -233,7 +266,7 @@ public sealed class ContextMenu : Panel
                 for (var i = 1; i <= choices.Count; i++)
                 {
                     var next = choices[(from + i + choices.Count) % choices.Count];
-                    if (next.Text.StartsWith(letter, StringComparison.OrdinalIgnoreCase))
+                    if (TextOf(next).StartsWith(letter, StringComparison.OrdinalIgnoreCase))
                     {
                         Highlight(next);
                         break;
@@ -243,10 +276,62 @@ public sealed class ContextMenu : Panel
         }
     }
 
+    // On a swatch, the arrows move round its grid: along the row, or up and down its column, and on out of the grid
+    // above or below it to the items there. Off the grid's side, Left and Right do as they do anywhere.
+    bool StepInGrid(Key key, List<Button> choices)
+    {
+        if (key is not (Key.Left or Key.Right or Key.Up or Key.Down) || _highlighted is not { } at)
+            return false;
+        if (FindGrid(at) is not { } grid)
+            return false;
+        var cells = grid.Cells;
+        var index = cells.IndexOf(at);
+        var (row, column) = (index / grid.Columns, index % grid.Columns);
+        var target = key switch
+        {
+            Key.Left when column > 0 => index - 1,
+            Key.Right when column < grid.Columns - 1 && index + 1 < cells.Count => index + 1,
+            Key.Up => index - grid.Columns,
+            Key.Down => index + grid.Columns,
+            _ => -1,
+        };
+        if (key is Key.Left or Key.Right)
+        {
+            if (target < 0)
+                return false;
+            if (cells[target].Enabled)
+                Highlight(cells[target]);
+            return true;
+        }
+        if (target >= 0 && target < cells.Count)
+        {
+            if (cells[target].Enabled)
+                Highlight(cells[target]);
+            return true;
+        }
+        // Down from the bottom row (or onto a gap in it) or up from the top, to the next item outside the grid.
+        if (key == Key.Down && row < (cells.Count - 1) / grid.Columns && target >= cells.Count)
+        {
+            Highlight(cells[^1]);
+            return true;
+        }
+        var outside = choices.Where(button => !cells.Contains(button)).ToList();
+        var edge = choices.IndexOf(key == Key.Up ? cells.First(cell => cell.Enabled) : cells.Last(cell => cell.Enabled));
+        var next = key == Key.Up
+            ? outside.LastOrDefault(button => choices.IndexOf(button) < edge) ?? outside.LastOrDefault()
+            : outside.FirstOrDefault(button => choices.IndexOf(button) > edge) ?? outside.FirstOrDefault();
+        if (next is not null)
+            Highlight(next);
+        return true;
+    }
+
+    SwatchGrid? FindGrid(Button button) =>
+        new[] { _box, _subBox }.SelectMany(box => box.Children.OfType<SwatchGrid>()).FirstOrDefault(grid => grid.Cells.Contains(button));
+
     // Escape closes the submenu the highlight's in, else the menu.
     bool Escape()
     {
-        if (_highlighted is { } item && _subBox.Children.Contains(item) && _openItem is { } parent)
+        if (_highlighted is { } item && Buttons(_subBox).Contains(item) && _openItem is { } parent)
         {
             CloseSubmenu();
             Highlight(parent);
@@ -287,48 +372,79 @@ public sealed class ContextMenu : Panel
     /// The texts of the open submenu's items, or null if none is open.
     /// </summary>
     public IReadOnlyList<string>? SubmenuTexts =>
-        _subBox.Visible ? _subBox.Children.OfType<Button>().Select(button => button.Text).ToList() : null;
+        _subBox.Visible ? Buttons(_subBox).Select(TextOf).ToList() : null;
 
     /// <summary>
     /// The texts of the menu's items, for tests.
     /// </summary>
-    public IReadOnlyList<string> ItemTexts => _box.Children.OfType<Button>().Select(button => button.Text).ToList();
+    public IReadOnlyList<string> ItemTexts => Buttons(_box).Select(TextOf).ToList();
 
     /// <summary>
     /// Chooses the item with <paramref name="text"/>, as clicking it would, for tests.
     /// </summary>
-    public void Choose(string text) => _box.Children.OfType<Button>().First(button => button.Text == text).RaiseClicked();
+    public void Choose(string text) => Buttons(_box).First(button => TextOf(button) == text).RaiseClicked();
 
     void Fill(Panel box, IEnumerable<MenuItem> items)
     {
-        foreach (var button in box.Children.OfType<Button>())
+        foreach (var button in Buttons(box).ToList())
             _items.Remove(button);
         box.Children.Clear();
 
         // Where any item is ticked, every item's text moves along to leave a column for the ticks, so they line up.
         var list = WithoutStraySeparators(items);
-        var tickColumn = list.Any(item => item.Checked) ? _font.Advance("•") + 6 : 0;
-        foreach (var item in list)
+        var tickColumn = list.Any(item => item.Checked && item.Swatch is null) ? _font.Advance("•") + 6 : 0;
+        for (var i = 0; i < list.Count; i++)
         {
+            var item = list[i];
             if (IsSeparator(item))
             {
                 box.Add(new Divider(0));
                 continue;
             }
-            var button = box.Add(
-                new Button(_font, item.Text)
+            Button button;
+            if (item.Swatch is { } colour)
+            {
+                // Swatches next to each other share a grid, as near square as they'll go.
+                if (i == 0 || list[i - 1].Swatch is null)
                 {
-                    TextIndent = tickColumn,
-                    Padding = 6,
-                    Enabled = item.Enabled,
-                    // Lit only while highlighted (see Highlight), so the mouse resting on one the keys have moved
-                    // off doesn't leave two lit.
-                    Background = Colors.Transparent,
-                    HoverBackground = Colors.Transparent,
-                    PressedBackground = Theme.Fade(Theme.Accent, 0.5f),
-                    FocusColor = Theme.Focus,
+                    var count = list.Skip(i).TakeWhile(next => next.Swatch is not null).Count();
+                    box.Add(new SwatchGrid((int)MathF.Ceiling(MathF.Sqrt(count))));
                 }
-            );
+                var grid = (SwatchGrid)box.Children[^1];
+                if (grid.Cells.Count % grid.Columns == 0)
+                    grid.Add(new Row(SWATCH_GAP) { Padding = 0 });
+                button = ((Panel)grid.Children[^1]).Add(
+                    new Button(_font, "")
+                    {
+                        Padding = 0,
+                        MinSize = new float2(SWATCH, SWATCH),
+                        Enabled = item.Enabled,
+                        Background = colour,
+                        HoverBackground = colour,
+                        PressedBackground = Theme.Mix(colour, Colors.White, 0.25f),
+                        BorderColor = SwatchEdge,
+                        BorderWidth = 1,
+                    }
+                );
+                grid.Cells.Add(button);
+            }
+            else
+            {
+                button = box.Add(
+                    new Button(_font, item.Text)
+                    {
+                        TextIndent = tickColumn,
+                        Padding = 6,
+                        Enabled = item.Enabled,
+                        // Lit only while highlighted (see Highlight), so the mouse resting on one the keys have
+                        // moved off doesn't leave two lit.
+                        Background = Colors.Transparent,
+                        HoverBackground = Colors.Transparent,
+                        PressedBackground = Theme.Fade(Theme.Accent, 0.5f),
+                        FocusColor = Theme.Focus,
+                    }
+                );
+            }
             _items[button] = item;
             button.Clicked += _ =>
             {
@@ -370,9 +486,9 @@ public sealed class ContextMenu : Panel
 
     void CloseSubmenu()
     {
-        if (_highlighted is not null && _subBox.Children.Contains(_highlighted))
+        if (_highlighted is not null && Buttons(_subBox).Contains(_highlighted))
             Highlight(null);
-        foreach (var button in _subBox.Children.OfType<Button>())
+        foreach (var button in Buttons(_subBox).ToList())
             _items.Remove(button);
         _subBox.Children.Clear();
         _openItem = null;
@@ -410,7 +526,41 @@ public sealed class ContextMenu : Panel
             button.MinSize = new float2(width, 0);
         foreach (var divider in box.Children.OfType<Divider>())
             divider.Length = width;
+        foreach (var grid in box.Children.OfType<SwatchGrid>())
+            grid.MinSize = new float2(width, 0);
         box.Measure();
+    }
+
+    /// <summary>
+    /// A menu's swatches, in rows of <see cref="Columns"/>, centred across the menu's width (its
+    /// <see cref="Panel.MinSize"/>), with a gap above and below.
+    /// </summary>
+    sealed class SwatchGrid : Panel
+    {
+        float _contentWidth;
+
+        public SwatchGrid(int columns)
+        {
+            Columns = Math.Max(1, columns);
+            Spacing = SWATCH_GAP;
+        }
+
+        public int Columns { get; }
+
+        public List<Button> Cells { get; } = [];
+
+        public override float2 Measure()
+        {
+            var content = MeasureChildren();
+            _contentWidth = content.X;
+            return Size = float2.Max(content + new float2(0, 2 * SWATCH_GAP), MinSize);
+        }
+
+        public override void Arrange(float2 position)
+        {
+            ArrangeSelf(position);
+            ArrangeChildren(position + new float2(MathF.Round(MathF.Max(0, Size.X - _contentWidth) / 2), SWATCH_GAP));
+        }
     }
 
     public override void Arrange(float2 position)
@@ -459,6 +609,15 @@ public sealed class ContextMenu : Panel
                 var x = button.ScreenPosition.X + button.Size.X - button.Padding - button.BorderWidth - _font.Advance(keys);
                 var y = button.ScreenPosition.Y + MathF.Round((button.Size.Y - _font.LineHeight) / 2);
                 batch.AddText(_font, keys, new float2(MathF.Round(x), y), color);
+            }
+            // A ticked swatch: a dot in its middle, light or dark to stand out on the colour.
+            foreach (var button in Buttons(box))
+            {
+                if (_items[button] is not { Checked: true, Swatch: { } colour })
+                    continue;
+                var light = 0.2126f * colour.X + 0.7152f * colour.Y + 0.0722f * colour.Z > 0.35f;
+                var centre = button.ScreenPosition + button.Size / 2;
+                batch.AddSmoothCircle(centre, 5, light ? Theme.OnColour : Colors.White);
             }
         }
         // A small arrow at the right of each item with a submenu.
