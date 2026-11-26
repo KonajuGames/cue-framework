@@ -650,8 +650,10 @@ public sealed class Button : Panel
 
         if (KeyHint is { } hint && HintFont is { } hintFont)
         {
+            // Inside a border, clear of its side by a pixel or two rather than right against it.
+            var border = BorderWidth > 0 && BorderColor.W > 0 ? BorderWidth + 2 : 0;
             var hintSize = hintFont.Measure(hint);
-            var hintAt = new float2(MathF.Round(ScreenPosition.X + Size.X - hintSize.X - 2), ScreenPosition.Y);
+            var hintAt = new float2(MathF.Round(ScreenPosition.X + Size.X - hintSize.X - 2 - border), ScreenPosition.Y);
             batch.AddText(hintFont, hint, hintAt, Enabled ? HintColor : HintColor * new float4(1, 1, 1, 0.4f));
         }
 
