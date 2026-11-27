@@ -7,7 +7,8 @@ namespace Cue.Framework.Window;
 /// What a windowed (WinExe) app loses on Windows, put back: console output when started from a terminal, and a
 /// visible error when it crashes. Elsewhere there is no WinExe distinction, so both fall back to the console. Also
 /// the Recycle Bin, for deleting files the user can get back, keeping the computer awake mid-set, and telling a
-/// read-only drive, and asking for a file to open.
+/// read-only drive, and asking for a file to open or where to save one. On a Mac, the dialogs, the error, the Trash
+/// and keeping awake are the Mac's own (see <see cref="MacShell"/>).
 /// </summary>
 public static unsafe partial class WindowsShell
 {
@@ -30,7 +31,15 @@ public static unsafe partial class WindowsShell
     /// </summary>
     public static void KeepAwake(bool awake)
     {
-        if (!OperatingSystem.IsWindows() || awake == IsKeepingAwake)
+        if (awake == IsKeepingAwake)
+            return;
+        if (OperatingSystem.IsMacOS())
+        {
+            if (MacShell.KeepAwake(awake))
+                IsKeepingAwake = awake;
+            return;
+        }
+        if (!OperatingSystem.IsWindows())
             return;
         if (SetThreadExecutionState(awake ? ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED : ES_CONTINUOUS) != 0)
             IsKeepingAwake = awake;
@@ -66,6 +75,8 @@ public static unsafe partial class WindowsShell
     /// </summary>
     public static string? MoveToRecycleBin(string path)
     {
+        if (OperatingSystem.IsMacOS())
+            return MacShell.MoveToTrash(path);
         if (!OperatingSystem.IsWindows())
             return "There's no Recycle Bin here";
 
@@ -139,6 +150,8 @@ public static unsafe partial class WindowsShell
     /// </summary>
     public static string? AskForFile(nint owner, string title, (string Description, string Patterns) filter, string? folder = null)
     {
+        if (OperatingSystem.IsMacOS())
+            return MacShell.AskForFile(title, filter.Patterns, folder);
         if (!OperatingSystem.IsWindows())
             return null;
         // Each description and its patterns end in a nul, and the list in another.
@@ -186,7 +199,11 @@ public static unsafe partial class WindowsShell
         string? folder = null
     )
     {
-        if (!OperatingSystem.IsWindows() || types.Count == 0)
+        if (types.Count == 0)
+            return null;
+        if (OperatingSystem.IsMacOS())
+            return MacShell.AskWhereToSave(title, types, fileName, folder);
+        if (!OperatingSystem.IsWindows())
             return null;
         var filters = string.Concat(types.Select(type => $"{type.Description} ({type.Pattern})\0{type.Pattern}\0")) + "\0";
         // Without a dot, the extension of the type chosen goes on what's typed.
@@ -239,6 +256,8 @@ public static unsafe partial class WindowsShell
 
         if (OperatingSystem.IsWindows())
             MessageBoxW(nint.Zero, exception.ToString(), $"{appName ?? AppName} crashed", MB_OK | MB_ICONERROR);
+        else if (OperatingSystem.IsMacOS())
+            MacShell.Alert($"{appName ?? AppName} crashed", exception.ToString());
     }
 
     /// <summary>
