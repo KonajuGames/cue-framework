@@ -4,7 +4,8 @@ namespace Cue.Framework.UI;
 
 /// <summary>
 /// The bar across the top of the window, in place of Windows' own. On the left, the logo, the app's name (its
-/// wordmark, in a colour for each part) and an optional <see cref="Subtitle"/>; on the right, the clock, the options
+/// wordmark, in a colour for each part), an optional <see cref="Version"/> in small muted type, and an optional
+/// <see cref="Subtitle"/>; on the right, the clock, the options
 /// button and the window's buttons. The app adds its own widgets to three places: <see cref="Centre"/>, centred
 /// between the sides (or moved left to keep clear of the right); <see cref="Status"/>, before the clock; and
 /// <see cref="Tools"/>, icon buttons before the options button. Its empty space is where the window can be dragged
@@ -22,6 +23,7 @@ public sealed class TitleBar : Panel
     readonly Panel _left;
     readonly Picture _logo;
     readonly Panel _wordmark;
+    readonly Label _version;
     readonly Label _subtitle;
     readonly Panel _right;
     readonly Spacer _statusGap;
@@ -36,6 +38,20 @@ public sealed class TitleBar : Panel
     /// Whether the window is maximised, which the middle button shows and toggles.
     /// </summary>
     public Func<bool> IsMaximized { get; set; } = () => false;
+
+    /// <summary>
+    /// The app's version, just after its name in <see cref="VersionFont"/> and muted; hidden while empty.
+    /// </summary>
+    public string Version { get; set; } = "";
+
+    /// <summary>
+    /// The font <see cref="Version"/> is drawn in, smaller than the name's; the body font until set.
+    /// </summary>
+    public Font VersionFont
+    {
+        get => _version.Font;
+        set => _version.Font = value;
+    }
 
     /// <summary>
     /// What follows the app's name, muted (a show's name, say); hidden while empty.
@@ -96,6 +112,7 @@ public sealed class TitleBar : Panel
         _wordmark = _left.Add(new Panel { Direction = Direction.Horizontal, Spacing = 0 });
         foreach (var (text, color) in wordmark)
             _wordmark.Add(new Label(bold, text) { Color = color });
+        _version = _left.Add(new Label(body) { Color = Theme.Muted, Visible = false });
         _subtitle = _left.Add(new Label(body) { Color = Theme.Muted, Visible = false });
 
         Centre = Add(new Panel { Direction = Direction.Horizontal, Spacing = 8 });
@@ -131,6 +148,8 @@ public sealed class TitleBar : Panel
     /// </summary>
     public void Update()
     {
+        _version.Text = Version;
+        _version.Visible = Version.Length > 0;
         _subtitle.Text = Subtitle;
         _subtitle.Visible = Subtitle.Length > 0;
         _clock.Text = DateTime.Now.ToString("HH:mm:ss");
@@ -170,6 +189,9 @@ public sealed class TitleBar : Panel
         // centring their lines would drop them, as a line keeps room below for descenders.
         var logoMiddle = _logo.ScreenPosition.Y + _logo.Size.Y / 2;
         _wordmark.Arrange(new float2(_wordmark.ScreenPosition.X, MathF.Round(logoMiddle - _bold.Ascender + _bold.CapHeight / 2)));
+        // The version sits on the name's baseline, closer to it than the row's spacing, as a part of it.
+        var baseline = _wordmark.ScreenPosition.Y + _bold.Ascender;
+        _version.Arrange(new float2(_wordmark.ScreenPosition.X + _wordmark.Size.X + 5, MathF.Round(baseline - _version.Font.Ascender)));
         CentreCapitals(_subtitle, logoMiddle);
         var rightMiddle = _right.ScreenPosition.Y + _right.Size.Y / 2;
         foreach (var label in Status.Children.OfType<Label>())
