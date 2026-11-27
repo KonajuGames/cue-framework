@@ -274,6 +274,12 @@ public sealed class Label(Font font, string text = "") : Element
     public float MaxWidth { get; set; } = float.PositiveInfinity;
 
     /// <summary>
+    /// The least it takes up, the text drawn from its left: room kept for the longest a changing reading gets, so what's
+    /// beside it doesn't move as it changes.
+    /// </summary>
+    public float MinWidth { get; set; }
+
+    /// <summary>
     /// Whether text wider than <see cref="MaxWidth"/> wraps onto more lines, between words, rather than being cut short.
     /// </summary>
     public bool Wrap { get; set; }
@@ -296,7 +302,7 @@ public sealed class Label(Font font, string text = "") : Element
             : Wrap ? Wrapped(Text)
             : string.Join('\n', Text.Split('\n').Select(Shortened));
         var size = Font.Measure(_wrapped);
-        return Size = new float2(MathF.Min(size.X, MaxWidth), size.Y);
+        return Size = new float2(MathF.Max(MathF.Min(size.X, MaxWidth), MinWidth), size.Y);
     }
 
     string Shortened(string line)
