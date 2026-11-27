@@ -29,6 +29,7 @@ public sealed class TitleBar : Panel
     readonly Spacer _statusGap;
     readonly Label _clock;
     readonly IconButton _maximize;
+    readonly List<Element> _windowButtons;
     readonly Font _body;
     readonly Font _bold;
 
@@ -38,6 +39,12 @@ public sealed class TitleBar : Panel
     /// Whether the window is maximised, which the middle button shows and toggles.
     /// </summary>
     public Func<bool> IsMaximized { get; set; } = () => false;
+
+    /// <summary>
+    /// Whether the bar has its own minimise, maximise and close buttons: yes, unless the window keeps the system's
+    /// own frame and buttons, as on a Mac.
+    /// </summary>
+    public bool ShowWindowButtons { get; set; } = !OperatingSystem.IsMacOS();
 
     /// <summary>
     /// The app's version, just after its name in <see cref="VersionFont"/> and muted; hidden while empty.
@@ -125,7 +132,7 @@ public sealed class TitleBar : Panel
         Tools = _right.Add(new Panel { Direction = Direction.Horizontal, Spacing = 0 });
         var options = _right.Add(new IconButton(TitleIcon.Picture) { Picture = cog, Tooltip = "Options" });
         options.Clicked += _ => OptionsClicked?.Invoke();
-        _right.Add(new Spacer(8));
+        _windowButtons = [_right.Add(new Spacer(8))];
         var minimize = _right.Add(new IconButton(TitleIcon.Minimize) { Tooltip = "Minimise" });
         minimize.Clicked += _ => MinimizeClicked?.Invoke();
         _maximize = _right.Add(new IconButton(TitleIcon.Maximize));
@@ -135,6 +142,7 @@ public sealed class TitleBar : Panel
             new IconButton(TitleIcon.Close) { HoverBackground = Colors.Hex(0xE81123), PressedBackground = Colors.Hex(0xF1707A), Tooltip = $"Close {name}" }
         );
         close.Clicked += _ => CloseClicked?.Invoke();
+        _windowButtons.AddRange([minimize, _maximize, close]);
         Update();
     }
 
@@ -153,6 +161,8 @@ public sealed class TitleBar : Panel
         _subtitle.Text = Subtitle;
         _subtitle.Visible = Subtitle.Length > 0;
         _clock.Text = DateTime.Now.ToString("HH:mm:ss");
+        foreach (var button in _windowButtons)
+            button.Visible = ShowWindowButtons;
         _maximize.Icon = IsMaximized() ? TitleIcon.Restore : TitleIcon.Maximize;
         _maximize.Tooltip = IsMaximized() ? "Restore" : "Maximise";
     }

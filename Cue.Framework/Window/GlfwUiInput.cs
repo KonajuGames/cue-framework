@@ -22,6 +22,12 @@ public sealed class GlfwUiInput : IDisposable
     readonly HashSet<GlfwKey> _keysHeldByUi = [];
 
     /// <summary>
+    /// What the Ctrl key is called where the app runs, for shortcuts written out: "Cmd" on a Mac, where Cmd does what
+    /// Ctrl does elsewhere (Ctrl still works too), and "Ctrl" everywhere else.
+    /// </summary>
+    public static string CtrlName { get; } = OperatingSystem.IsMacOS() ? "Cmd" : "Ctrl";
+
+    /// <summary>
     /// A key event the UI didn't use, releases included, for the app's own shortcuts. Subscribe to this instead of
     /// the window's OnKey, so typing in a text box doesn't also trigger them.
     /// </summary>
@@ -160,7 +166,7 @@ public sealed class GlfwUiInput : IDisposable
             }
 
             if (!handled)
-                UnhandledKey?.Invoke(key, action, mods);
+                UnhandledKey?.Invoke(key, action, CommandAsControl(mods));
         });
 
     void OnChar(GlfwWindow window, uint codePoint) =>
@@ -182,11 +188,18 @@ public sealed class GlfwUiInput : IDisposable
             held |= Modifiers.Alt;
         if (Down(GlfwKey.LeftSuper, GlfwKey.RightSuper))
             held |= Modifiers.Super;
-        return held;
+        return OperatingSystem.IsMacOS() && (held & Modifiers.Super) != 0 ? held | Modifiers.Control : held;
     }
 
     // GLFW's Shift, Control, Alt and Super bits match Modifiers; Caps Lock and Num Lock are dropped.
-    static Modifiers ToModifiers(GlfwModifier mods) => (Modifiers)((int)mods & 0xF);
+    static Modifiers ToModifiers(GlfwModifier mods) => (Modifiers)((int)CommandAsControl(mods) & 0xF);
+
+    /// <summary>
+    /// <paramref name="mods"/> with Control added while Cmd (Super) is held on a Mac, so Cmd + Z and the rest do what
+    /// Ctrl + Z does elsewhere.
+    /// </summary>
+    public static GlfwModifier CommandAsControl(GlfwModifier mods) =>
+        OperatingSystem.IsMacOS() && (mods & GlfwModifier.Super) != 0 ? mods | GlfwModifier.Control : mods;
 
     /// <summary>
     /// A GLFW key as the UI knows it (<see cref="Key.Other"/> for one it doesn't).
